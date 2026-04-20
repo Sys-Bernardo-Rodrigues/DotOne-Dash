@@ -4,6 +4,7 @@
   "description": "",
   "scripts": {
     "dev": "vite",
+    "api:dev": "npm --prefix server run dev",
     "build": "vite build",
     "preview": "vite preview",
     "start": "vite"

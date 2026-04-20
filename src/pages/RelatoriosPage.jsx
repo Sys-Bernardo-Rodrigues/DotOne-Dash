@@ -1,14 +1,30 @@
+import TrendLineChart from "../components/charts/TrendLineChart";
 import MetricsGrid from "../components/MetricsGrid";
 import PageHeader from "../components/PageHeader";
-import { relatorioMetricas } from "../data/dashboardData";
+import { useClientData } from "../context/ClientDataContext";
+
+function textoOuPlaceholder(valor, placeholder) {
+  const t = String(valor ?? "").trim();
+  return t || placeholder;
+}
 
 export default function RelatoriosPage() {
+  const {
+    relatorioMetricas,
+    fases,
+    areas,
+    activeClient,
+    clientConfig,
+    trendPorFase,
+    swotPlano,
+  } = useClientData();
+  const nomeCliente = activeClient.nome?.trim() || "Cliente";
+  const ph = "Cadastre em Configurações do cliente.";
   return (
     <>
       <PageHeader
         title="Relatórios"
         subtitle="Análises e exportações do plano estratégico"
-        action={<button className="btn-primary">Exportar PDF</button>}
       />
 
       <section className="card reports-export-card">
@@ -29,76 +45,131 @@ export default function RelatoriosPage() {
       </div>
 
       <section className="charts-grid reports-charts-grid">
-        <article className="card chart-card reports-chart">
+        <article className="card chart-card reports-chart chart-card--phases">
           <h2>Progresso por Fase</h2>
-          <p>Percentual de conclusão de cada fase estratégica</p>
-          <div className="bars">
-            <div className="bar-row"><span>Fase 1</span><div className="bar"><div style={{ width: "35%" }} /></div><em>35%</em></div>
-            <div className="bar-row"><span>Fase 2</span><div className="bar"><div style={{ width: "20%" }} /></div><em>20%</em></div>
-            <div className="bar-row"><span>Fase 3</span><div className="bar"><div style={{ width: "12%" }} /></div><em>12%</em></div>
-            <div className="bar-row"><span>Fase 4</span><div className="bar"><div style={{ width: "5%" }} /></div><em>5%</em></div>
-            <div className="bar-row"><span>Fase 5</span><div className="bar"><div style={{ width: "0%" }} /></div><em>0%</em></div>
+          <p>Percentual médio de progresso das ações em cada fase</p>
+          <div className="bars bars--pro">
+            {(fases.length ? fases : [{ nome: "Sem fases cadastradas", progresso: 0 }]).map((fase) => (
+              <div className="bar-row" key={fase.nome}>
+                <span>{fase.nome}</span>
+                <div className="bar bar--chart">
+                  <div style={{ width: `${fase.progresso}%` }} />
+                </div>
+                <em>{fase.progresso}%</em>
+              </div>
+            ))}
           </div>
         </article>
 
-        <article className="card chart-card reports-chart">
+        <article className="card chart-card reports-chart chart-card--trend">
           <h2>Análise de Tendência</h2>
-          <p>Comparação entre situação atual e meta 2025</p>
-          <div className="line-visual">
-            <svg viewBox="0 0 360 180" aria-hidden="true">
-              <polyline points="20,145 95,118 170,105 245,88 320,78" className="line current" />
-              <polyline points="20,150 95,130 170,110 245,90 320,70" className="line target" />
-              <circle cx="20" cy="145" r="4" /><circle cx="95" cy="118" r="4" />
-              <circle cx="170" cy="105" r="4" /><circle cx="245" cy="88" r="4" />
-              <circle cx="320" cy="78" r="4" />
-            </svg>
-          </div>
-          <div className="line-legend">
-            <span><i className="dot-line current" /> Atual</span>
-            <span><i className="dot-line target" /> Meta</span>
-          </div>
+          <p>Progresso médio por fase (atual) vs. trajetória de meta linear entre fases</p>
+          {trendPorFase.labels.length >= 2 ? (
+            <>
+              <TrendLineChart
+                labels={trendPorFase.labels}
+                atual={trendPorFase.atual}
+                meta={trendPorFase.meta}
+              />
+              <div className="line-legend line-legend--pro">
+                <span>
+                  <i className="dot-line current" /> Atual (média por fase)
+                </span>
+                <span>
+                  <i className="dot-line target" /> Meta (rampa 0–100%)
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="chart-empty-hint">
+              Cadastre ações com fases distintas para visualizar a linha de tendência.
+            </p>
+          )}
         </article>
 
-        <article className="card chart-card reports-chart">
+        <article className="card chart-card reports-chart chart-card--areas-report">
           <h2>Distribuição por Área</h2>
-          <p>Número de ações e progresso por área funcional</p>
-          <ul className="area-list">
-            <li><span>Operações</span><strong>5 ações</strong><em>28%</em></li>
-            <li><span>Comercial</span><strong>4 ações</strong><em>16%</em></li>
-            <li><span>Financeiro</span><strong>3 ações</strong><em>10%</em></li>
-            <li><span>RH</span><strong>3 ações</strong><em>12%</em></li>
-            <li><span>Tecnologia</span><strong>2 ações</strong><em>8%</em></li>
+          <p>Número de ações e peso relativo por área funcional</p>
+          <ul className="area-list area-list--bars">
+            {(areas.length
+              ? areas
+              : [{ nome: "Sem áreas cadastradas", acoes: "0 ações no plano", percentual: 0 }]
+            ).map((area) => (
+              <li key={area.nome}>
+                <div className="area-list-main">
+                  <span>{area.nome}</span>
+                  <strong>{area.acoes}</strong>
+                  <em>{area.percentual}%</em>
+                </div>
+                <div className="area-list-track">
+                  <div style={{ width: `${area.percentual}%` }} />
+                </div>
+              </li>
+            ))}
           </ul>
         </article>
 
-        <article className="card chart-card reports-chart">
-          <h2>Análise SWOT</h2>
-          <p>Pontuação da matriz SWOT do diagnóstico</p>
-          <div className="swot-grid">
-            <div><h4>Forças</h4><strong>8.4</strong></div>
-            <div><h4>Fraquezas</h4><strong>5.2</strong></div>
-            <div><h4>Oportunidades</h4><strong>7.9</strong></div>
-            <div><h4>Ameaças</h4><strong>6.1</strong></div>
+        <article className="card chart-card reports-chart chart-card--swot">
+          <h2>Indicadores estilo SWOT</h2>
+          <p>Proporções do plano numa escala 0–10 (derivadas dos estados das ações)</p>
+          <div className="swot-grid swot-grid--pro">
+            <div>
+              <h4>Forças</h4>
+              <strong>{swotPlano.forcas ?? "—"}</strong>
+              <span className="swot-foot">Peso das concluídas</span>
+            </div>
+            <div>
+              <h4>Fraquezas</h4>
+              <strong>{swotPlano.fraquezas ?? "—"}</strong>
+              <span className="swot-foot">Peso dos atrasos</span>
+            </div>
+            <div>
+              <h4>Oportunidades</h4>
+              <strong>{swotPlano.oportunidades ?? "—"}</strong>
+              <span className="swot-foot">Peso em andamento</span>
+            </div>
+            <div>
+              <h4>Ameaças</h4>
+              <strong>{swotPlano.ameacas ?? "—"}</strong>
+              <span className="swot-foot">Peso não iniciadas</span>
+            </div>
           </div>
         </article>
       </section>
 
       <section className="card company-info reports-company-card">
-        <h2>Informações da Empresa</h2>
-        <p>Dados estratégicos da Flessak Indústria</p>
+        <h2>Informações do cliente</h2>
+        <p>
+          Dados exibidos nos relatórios refletem o plano de ação cadastrado para{" "}
+          <strong>{nomeCliente}</strong>.
+        </p>
         <div className="company-grid">
-          <div><h3>Missão</h3><p>Proporcionar energia limpa renovável</p></div>
-          <div><h3>Visão</h3><p>Desenvolvimento sustentável</p></div>
-          <div><h3>Core Business</h3><p>Tecnologia para energia sustentável</p></div>
-          <div><h3>Valores</h3><p>Comprometimento, Inovação e Conhecimento</p></div>
+          <div>
+            <h3>Missão</h3>
+            <p>{textoOuPlaceholder(clientConfig.missao, ph)}</p>
+          </div>
+          <div>
+            <h3>Visão</h3>
+            <p>{textoOuPlaceholder(clientConfig.visao, ph)}</p>
+          </div>
+          <div>
+            <h3>Valores</h3>
+            <p>{textoOuPlaceholder(clientConfig.valores, ph)}</p>
+          </div>
+          <div>
+            <h3>Plano de ação</h3>
+            <p>
+              Métricas, fases e áreas vêm das ações em &quot;Plano de Ação&quot; (5W2H), alinhadas
+              ao contexto estratégico acima.
+            </p>
+          </div>
         </div>
         <div className="differentials">
-          <h3>Diferenciais</h3>
+          <h3>Boas práticas</h3>
           <ul>
-            <li>Qualidade superior inquestionável</li>
-            <li>Conhecimento do segmento</li>
-            <li>Cases de sucesso</li>
-            <li>Facilidade de integração de projetos</li>
+            <li>Revise missão, visão e valores quando o posicionamento do cliente mudar</li>
+            <li>Completar cadastro 5W2H nas ações para relatórios mais ricos</li>
+            <li>Manter prazos em dd/mm/aaaa para o cronograma anual</li>
           </ul>
         </div>
       </section>

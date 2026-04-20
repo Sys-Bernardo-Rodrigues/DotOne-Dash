@@ -1,19 +1,22 @@
 import { useState } from "react";
+import DonutStatusChart from "../components/charts/DonutStatusChart";
 import MetricsGrid from "../components/MetricsGrid";
 import PageHeader from "../components/PageHeader";
-import {
-  acoesCriticas,
-  areas,
-  fases,
-  insights,
-  metricasVisaoGeral,
-  statusAcoes,
-} from "../data/dashboardData";
+import { useClientData } from "../context/ClientDataContext";
 
 export default function VisaoGeralPage() {
+  const {
+    acoesCriticas,
+    areas,
+    fases,
+    insights,
+    metricasVisaoGeral,
+    statusAcoes,
+    progressoGeral,
+  } = useClientData();
   const [paginaCritica, setPaginaCritica] = useState(1);
   const itensPorPagina = 3;
-  const totalPaginas = Math.ceil(acoesCriticas.length / itensPorPagina);
+  const totalPaginas = Math.max(1, Math.ceil(acoesCriticas.length / itensPorPagina));
   const inicio = (paginaCritica - 1) * itensPorPagina;
   const acoesCriticasPaginadas = acoesCriticas.slice(
     inicio,
@@ -32,7 +35,6 @@ export default function VisaoGeralPage() {
       <PageHeader
         title="Visão Geral Executivo"
         subtitle="Dashboard de acompanhamento do plano estratégico"
-        action={<button className="btn-primary">Exportar PDF</button>}
       />
 
       <section className="metrics-grid metrics-grid-5">
@@ -49,18 +51,22 @@ export default function VisaoGeralPage() {
 
         <article className="metric-card progress-inline-card">
           <h3>Progresso Geral</h3>
-          <strong>15%</strong>
-          <div className="bar">
-            <div style={{ width: "15%" }} />
+          <strong>{progressoGeral}%</strong>
+          <div className="bar bar--chart">
+            <div style={{ width: `${progressoGeral}%` }} />
           </div>
         </article>
       </section>
 
       <section className="charts-grid charts-grid-focus">
-        <article className="card chart-card chart-card-wide">
+        <article className="card chart-card chart-card-wide chart-card--phases">
           <h2>Progresso por Fase</h2>
-          <div className="bars">
-            {fases.map((fase) => (
+          <p className="chart-card-sub">Média de progresso das ações em cada fase</p>
+          <div className="bars bars--pro">
+            {(fases.length
+              ? fases
+              : [{ nome: "Sem fases no plano", progresso: 0, atrasadas: 0 }]
+            ).map((fase) => (
               <div key={fase.nome} className="bar-row">
                 <span>
                   {fase.nome}
@@ -68,7 +74,7 @@ export default function VisaoGeralPage() {
                     <small className="phase-delay">{fase.atrasadas} atrasadas</small>
                   ) : null}
                 </span>
-                <div className="bar">
+                <div className="bar bar--chart">
                   <div style={{ width: `${fase.progresso}%` }} />
                 </div>
                 <em>{fase.progresso}%</em>
@@ -77,8 +83,9 @@ export default function VisaoGeralPage() {
           </div>
         </article>
 
-        <article className="card chart-card chart-card-side">
+        <article className="card chart-card chart-card-side chart-card--insights">
           <h2>Insights Automáticos</h2>
+          <p className="chart-card-sub">Gerados a partir dos dados do plano</p>
           <ul className="insight-list">
             {insights.map((insight) => (
               <li key={insight}>{insight}</li>
@@ -89,17 +96,21 @@ export default function VisaoGeralPage() {
 
       <section className="charts-grid-secondary">
         <div className="left-stack">
-          <article className="card chart-card">
+          <article className="card chart-card chart-card--areas">
             <h2>Ações por Área</h2>
+            <p className="chart-card-sub">Partilha de ações por área funcional</p>
             <ul className="area-progress-list">
-              {areas.map((area) => (
+              {(areas.length
+                ? areas
+                : [{ nome: "Sem área definida", acoes: "0 ações no plano", percentual: 0 }]
+              ).map((area) => (
                 <li key={area.nome}>
                   <div className="area-progress-head">
                     <span>{area.nome}</span>
                     <strong>{area.percentual}%</strong>
                   </div>
                   <small>{area.acoes}</small>
-                  <div className="bar">
+                  <div className="bar bar--chart">
                     <div style={{ width: `${area.percentual}%` }} />
                   </div>
                 </li>
@@ -107,10 +118,10 @@ export default function VisaoGeralPage() {
             </ul>
           </article>
 
-          <article className="card chart-card">
+          <article className="card chart-card chart-card--status">
             <h2>Status das Ações</h2>
-            <div className="status-pie-wrap">
-              <div className="status-pie" aria-label="Gráfico pizza de status" />
+            <div className="status-pie-wrap chart-status-layout">
+              <DonutStatusChart statusAcoes={statusAcoes} />
               <ul className="status-legend">
                 {statusAcoes.map((status) => (
                   <li key={status.nome}>

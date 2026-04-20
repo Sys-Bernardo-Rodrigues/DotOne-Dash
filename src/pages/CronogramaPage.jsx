@@ -1,6 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PageHeader from "../components/PageHeader";
-import { planoAcaoItems } from "../data/dashboardData";
+import { useClientData } from "../context/ClientDataContext";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+
+const STATUS_CRONOGRAMA = ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"];
 
 const meses = [
   { key: 1, label: "jan" },
@@ -20,51 +24,97 @@ const meses = [
 function statusClass(status) {
   if (status === "Atrasado") return "gantt-pill atraso";
   if (status === "Em Andamento") return "gantt-pill andamento";
+  if (status === "Concluído") return "gantt-pill concluido";
   return "gantt-pill pendente";
 }
 
 function mesFromPrazo(prazo) {
-  const parts = prazo.split("/");
+  if (!prazo || typeof prazo !== "string") return null;
+  const parts = prazo.trim().split("/");
   if (parts.length < 2) return null;
-  return Number(parts[1]);
+  const m = Number(parts[1]);
+  return Number.isFinite(m) ? m : null;
 }
 
 function anoFromPrazo(prazo) {
-  const parts = prazo.split("/");
+  if (!prazo || typeof prazo !== "string") return null;
+  const parts = prazo.trim().split("/");
   if (parts.length < 3) return null;
-  return Number(parts[2]);
+  const y = Number(parts[2]);
+  return Number.isFinite(y) ? y : null;
 }
 
 function diaMes(prazo) {
-  const parts = prazo.split("/");
-  if (!parts.length) return "--/--";
+  if (!prazo || typeof prazo !== "string") return "--/--";
+  const parts = prazo.trim().split("/");
+  if (parts.length < 2) return "--/--";
   return `${parts[0]}/${parts[1]}`;
 }
 
 export default function CronogramaPage() {
-  const [anoSelecionado, setAnoSelecionado] = useState(2025);
+  const { planoAcaoItems } = useClientData();
+  const anoAjustadoPeloUsuario = useRef(false);
+  const [anoSelecionado, setAnoSelecionado] = useState(() => new Date().getFullYear());
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("Todos");
   const [areaFiltro, setAreaFiltro] = useState("Todas");
 
-  const statusOptions = ["Todos", ...new Set(planoAcaoItems.map((item) => item.status))];
-  const areaOptions = ["Todas", ...new Set(planoAcaoItems.map((item) => item.area))];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/health`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (cancelled || anoAjustadoPeloUsuario.current) return;
+        if (Number.isFinite(data.year)) {
+          setAnoSelecionado(data.year);
+        }
+      } catch {
+        /* mantém o ano já exibido (relógio do navegador) */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function mudarAno(delta) {
+    anoAjustadoPeloUsuario.current = true;
+    setAnoSelecionado((prev) => prev + delta);
+  }
+
+  const statusOptions = [
+    "Todos",
+    ...new Set([...STATUS_CRONOGRAMA, ...planoAcaoItems.map((item) => item.status)]),
+  ];
+  const areaOptions = ["Todas", ...new Set(planoAcaoItems.map((item) => item.area).filter(Boolean))];
 
   const itensFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
     return planoAcaoItems.filter((item) => {
-      const matchBusca =
-        !termo ||
-        item.id.toLowerCase().includes(termo) ||
-        item.acao.toLowerCase().includes(termo) ||
-        item.responsavel.toLowerCase().includes(termo);
+      const haystack = [
+        item.id,
+        item.acao,
+        item.responsavel,
+        item.area,
+        item.fase,
+        item.porQue,
+        item.como,
+        item.quanto,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const matchBusca = !termo || haystack.includes(termo);
       const matchStatus = statusFiltro === "Todos" || item.status === statusFiltro;
       const matchArea = areaFiltro === "Todas" || item.area === areaFiltro;
-      const matchAno = anoFromPrazo(item.prazo) === anoSelecionado;
+      const itemAno = anoFromPrazo(item.prazo);
+      const matchAno = itemAno === null || itemAno === anoSelecionado;
       return matchBusca && matchStatus && matchArea && matchAno;
     });
-  }, [busca, statusFiltro, areaFiltro, anoSelecionado]);
+  }, [planoAcaoItems, busca, statusFiltro, areaFiltro, anoSelecionado]);
 
   const anoCurto = String(anoSelecionado).slice(-2);
 
@@ -73,19 +123,21 @@ export default function CronogramaPage() {
       <PageHeader
         title="Cronograma (Timeline/Gantt)"
         subtitle="Visualização temporal das ações estratégicas"
-        action={<button className="btn-primary">Exportar PDF</button>}
       />
 
       <section className="card">
-        <div className="timeline-range">
-          jan {anoCurto} - dez {anoCurto}
+        <div className="timeline-range" title="Faixa de meses do ano exibido (padrão = ano do servidor)">
+          <span className="timeline-ano-label">Ano {anoSelecionado}</span>
+          <span className="timeline-ano-meses">
+            jan {anoCurto} – dez {anoCurto}
+          </span>
         </div>
         <div className="gantt-title-row">
           <h2 className="gantt-title">Cronograma de Ações Estratégicas</h2>
           <div className="header-actions">
             <button
               className="btn-secondary"
-              onClick={() => setAnoSelecionado((prev) => prev - 1)}
+              onClick={() => mudarAno(-1)}
               aria-label="Ano anterior"
               title="Ano anterior"
             >
@@ -93,7 +145,7 @@ export default function CronogramaPage() {
             </button>
             <button
               className="btn-secondary"
-              onClick={() => setAnoSelecionado((prev) => prev + 1)}
+              onClick={() => mudarAno(1)}
               aria-label="Próximo ano"
               title="Próximo ano"
             >
@@ -153,6 +205,7 @@ export default function CronogramaPage() {
                 </tr>
               ) : itensFiltrados.map((item) => {
                 const mesAlvo = mesFromPrazo(item.prazo);
+                const semPrazoValido = mesAlvo === null;
                 return (
                   <tr key={item.id}>
                     <td>
@@ -164,7 +217,12 @@ export default function CronogramaPage() {
                     </td>
                     {meses.map((mes) => (
                       <td key={`${item.id}-${mes.key}`} className="gantt-month-cell">
-                        {mes.key === mesAlvo ? (
+                        {semPrazoValido && mes.key === 12 ? (
+                          <div className={statusClass(item.status)}>
+                            <span>—</span>
+                            <em className="gantt-sem-prazo">Sem prazo</em>
+                          </div>
+                        ) : mes.key === mesAlvo ? (
                           <div className={statusClass(item.status)}>
                             <span>{diaMes(item.prazo)}</span>
                             <em>{item.progresso}</em>

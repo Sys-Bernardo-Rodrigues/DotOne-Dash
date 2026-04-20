@@ -1,6 +1,7 @@
 import { useState } from "react";
 import PageHeader from "../components/PageHeader";
-import { planoAcaoItems } from "../data/dashboardData";
+import { useClientData } from "../context/ClientDataContext";
+import { parsePlanoProgress } from "../utils/planoAcaoNormalize";
 
 const areaLabels = {
   Comercial: "Comercial / Vendas",
@@ -9,30 +10,31 @@ const areaLabels = {
   Engenharia: "Engenharia / Projetos",
   Administrativo: "Administrativo / Financeiro / RH",
   TI: "TI / Sistemas",
+  "Sem área": "Sem área definida",
 };
 
 function statusClass(status) {
   if (status === "Atrasado") return "chip atraso";
   if (status === "Em Andamento") return "chip andamento";
+  if (status === "Concluído") return "chip ok";
   return "chip pendente";
 }
 
 function mediaProgresso(items) {
   if (!items.length) return 0;
-  const soma = items.reduce(
-    (acc, item) => acc + Number(item.progresso.replace("%", "")),
-    0
-  );
+  const soma = items.reduce((acc, item) => acc + parsePlanoProgress(item.progresso), 0);
   return Math.round(soma / items.length);
 }
 
 export default function PorAreaPage() {
+  const { planoAcaoItems } = useClientData();
   const [paginaAcoesPorCard, setPaginaAcoesPorCard] = useState({});
   const itensPorCard = 3;
 
   const areasMap = planoAcaoItems.reduce((acc, item) => {
-    if (!acc[item.area]) acc[item.area] = [];
-    acc[item.area].push(item);
+    const chave = item.area || "Sem área";
+    if (!acc[chave]) acc[chave] = [];
+    acc[chave].push(item);
     return acc;
   }, {});
 
@@ -70,10 +72,17 @@ export default function PorAreaPage() {
       <PageHeader
         title="Visão por Área"
         subtitle="Acompanhamento das ações por departamento"
-        action={<button className="btn-primary">Exportar PDF</button>}
       />
 
       <section className="area-vision-grid">
+        {cards.length === 0 ? (
+          <article className="card area-vision-card area-vision-empty">
+            <p>
+              Nenhuma ação no plano. Cadastre itens em <strong>Plano de Ação</strong> para ver o
+              painel por área.
+            </p>
+          </article>
+        ) : null}
         {cards.map((card) => {
           const totalPaginas = Math.max(
             1,

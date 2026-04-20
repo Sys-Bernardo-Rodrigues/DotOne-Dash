@@ -60,6 +60,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 4px 2px 2px;
 }
 
 .brand-mark {
@@ -105,6 +106,9 @@ body {
   font-weight: 600;
   font-size: 0.8rem;
   transition: all 160ms ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .nav-link:hover {
@@ -116,6 +120,54 @@ body {
   color: #0f172a;
   background: var(--primary-soft);
   box-shadow: inset 0 0 0 1px #bfdbfe;
+}
+
+.nav-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  color: #64748b;
+  flex: 0 0 16px;
+}
+
+.nav-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.nav-link.active .nav-icon,
+.nav-link:hover .nav-icon {
+  color: #2563eb;
+}
+
+.client-badge {
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+  padding: 9px;
+}
+
+.client-badge h4 {
+  margin: 0;
+  font-size: 0.62rem;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.client-badge strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.77rem;
+  color: #1e3a8a;
+}
+
+.client-badge p {
+  margin: 4px 0 0;
+  font-size: 0.64rem;
+  color: #475569;
 }
 
 .mission-card {
@@ -1224,6 +1276,18 @@ body {
   margin-top: 4px;
   font-size: 0.7rem;
   color: #1d4ed8;
+}
+
+.card-actions-pagination {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.68rem;
+  color: var(--muted);
 }
 
 .reports-export-card,

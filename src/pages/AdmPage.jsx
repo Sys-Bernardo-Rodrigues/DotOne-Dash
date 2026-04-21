@@ -382,7 +382,9 @@ export default function AdmPage({ defaultSection = "usuarios" }) {
       <section className="adm-layout">
         <aside className="sidebar adm-sidebar">
           <div className="brand-block">
-            <div className="brand-mark">MD</div>
+            <div className="brand-mark">
+              <img src="/brand-icon-blue.png" alt="My Dot Growth" className="brand-mark-image" />
+            </div>
             <div>
               <div className="brand">My Dot Growth</div>
               <div className="brand-subtitle">

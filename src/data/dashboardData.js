@@ -5,6 +5,8 @@ export const menuItems = [
   { segment: "por-area", label: "Por Área" },
   { segment: "responsaveis", label: "Responsáveis" },
   { segment: "relatorios", label: "Relatórios" },
+  { segment: "investimentos", label: "Investimentos" },
+  { segment: "campanhas-marketing", label: "Campanhas Marketing" },
   { segment: "configuracao", label: "Configurações" },
 ];
 

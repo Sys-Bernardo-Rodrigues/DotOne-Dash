@@ -74,7 +74,9 @@ export default function LoginPage() {
         <article className="login-panel login-panel-info">
           <div className="login-panel-inner">
             <div className="login-logo">
-              <div className="brand-mark">MD</div>
+              <div className="brand-mark">
+                <img src="/brand-icon-blue.png" alt="My Dot Growth" className="brand-mark-image" />
+              </div>
               <div>
                 <strong>My Dot Growth</strong>
                 <p>Plataforma de gestão estratégica</p>

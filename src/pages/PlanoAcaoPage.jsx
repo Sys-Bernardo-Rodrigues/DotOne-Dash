@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import PageHeader from "../components/PageHeader";
 import { useClientData } from "../context/ClientDataContext";
 import { authHeaders } from "../lib/adminApi";
+import { computePlanoStatus, formatPlanoProgress } from "../utils/planoAcaoNormalize";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
@@ -19,10 +20,26 @@ function isoDateToPrazoBR(iso) {
   return `${d}/${m}/${y}`;
 }
 
+function prazoBRToIsoDate(prazo) {
+  const txt = String(prazo || "").trim();
+  const m = txt.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return "";
+  const [, dd, mm, yyyy] = m;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 const STATUS_PADRAO = ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"];
 
 /** Valor do &lt;select&gt; quando o utilizador escolhe responsável fora da lista. */
 const RESPONSAVEL_OUTRO = "__outro__";
+
+function buildResponsavelEditState(nomeResponsavel, users) {
+  const nome = String(nomeResponsavel || "").trim();
+  if (!nome) return { responsavel: "", responsavelOutro: "" };
+  const existeNaLista = Array.isArray(users) && users.some((u) => String(u.nome || "").trim() === nome);
+  if (existeNaLista) return { responsavel: nome, responsavelOutro: "" };
+  return { responsavel: RESPONSAVEL_OUTRO, responsavelOutro: nome };
+}
 
 function buildInitialForm() {
   return {
@@ -42,7 +59,13 @@ function buildInitialForm() {
 }
 
 export default function PlanoAcaoPage() {
-  const { planoAcaoItems, addPlanoAcaoItem, activeClient } = useClientData();
+  const {
+    planoAcaoItems,
+    addPlanoAcaoItem,
+    updatePlanoAcaoItem,
+    deletePlanoAcaoItem,
+    activeClient,
+  } = useClientData();
   const [pagina, setPagina] = useState(1);
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("Todos");
@@ -53,6 +76,7 @@ export default function PlanoAcaoPage() {
   const [erroSalvar, setErroSalvar] = useState("");
   const [assignableUsers, setAssignableUsers] = useState([]);
   const [loadingAssignableUsers, setLoadingAssignableUsers] = useState(false);
+  const [editingItemId, setEditingItemId] = useState("");
 
   const statusOptions = [
     "Todos",
@@ -89,6 +113,14 @@ export default function PlanoAcaoPage() {
   const totalPaginas = Math.max(1, Math.ceil(total / itensPorPagina));
   const inicio = (pagina - 1) * itensPorPagina;
   const paginaItems = itensFiltrados.slice(inicio, inicio + itensPorPagina);
+  const statusPreview = useMemo(
+    () =>
+      computePlanoStatus({
+        progresso: form.progresso,
+        prazo: isoDateToPrazoBR(form.prazoIso),
+      }),
+    [form.progresso, form.prazoIso]
+  );
 
   useEffect(() => {
     setPagina(1);
@@ -120,8 +152,48 @@ export default function PlanoAcaoPage() {
     };
   }, [modalAberto, activeClient.slug]);
 
+  useEffect(() => {
+    if (!modalAberto || !editingItemId || loadingAssignableUsers) return;
+    const nomeAtual = String(
+      form.responsavel === RESPONSAVEL_OUTRO ? form.responsavelOutro : form.responsavel
+    ).trim();
+    if (!nomeAtual) return;
+    const next = buildResponsavelEditState(nomeAtual, assignableUsers);
+    if (next.responsavel !== form.responsavel || next.responsavelOutro !== form.responsavelOutro) {
+      setForm((p) => ({ ...p, ...next }));
+    }
+  }, [
+    modalAberto,
+    editingItemId,
+    loadingAssignableUsers,
+    assignableUsers,
+    form.responsavel,
+    form.responsavelOutro,
+  ]);
+
   function abrirModal() {
+    setEditingItemId("");
     setForm(buildInitialForm());
+    setErroSalvar("");
+    setModalAberto(true);
+  }
+
+  function abrirModalEdicao(item) {
+    setEditingItemId(item.id);
+    const respState = buildResponsavelEditState(item.responsavel, assignableUsers);
+    setForm({
+      acao: item.acao || "",
+      porQue: item.porQue || "",
+      area: item.area || "",
+      prazoIso: prazoBRToIsoDate(item.prazo),
+      responsavel: respState.responsavel,
+      responsavelOutro: respState.responsavelOutro,
+      como: item.como || "",
+      quanto: item.quanto || "",
+      fase: item.fase || "",
+      status: item.status || "Não Iniciado",
+      progresso: formatPlanoProgress(item.progresso),
+    });
     setErroSalvar("");
     setModalAberto(true);
   }
@@ -147,7 +219,7 @@ export default function PlanoAcaoPage() {
     setSalvando(true);
     setErroSalvar("");
     const prazo = isoDateToPrazoBR(form.prazoIso);
-    const result = await addPlanoAcaoItem({
+    const payload = {
       acao: form.acao.trim(),
       porQue: form.porQue.trim(),
       area: form.area.trim(),
@@ -156,16 +228,29 @@ export default function PlanoAcaoPage() {
       como: form.como.trim(),
       quanto: form.quanto.trim(),
       fase: form.fase.trim(),
-      status: form.status,
       progresso: form.progresso.trim() || "0%",
-    });
+    };
+    const result = editingItemId
+      ? await updatePlanoAcaoItem(editingItemId, payload)
+      : await addPlanoAcaoItem(payload);
     setSalvando(false);
     if (!result.ok) {
       setErroSalvar(result.message || "Erro ao salvar.");
       return;
     }
     setModalAberto(false);
+    setEditingItemId("");
     setForm(buildInitialForm());
+  }
+
+  async function handleDeleteItem(item) {
+    if (!item?.id) return;
+    const ok = window.confirm(`Excluir a ação ${item.id}? Esta operação não pode ser desfeita.`);
+    if (!ok) return;
+    const result = await deletePlanoAcaoItem(item.id);
+    if (!result.ok) {
+      window.alert(result.message || "Não foi possível excluir a ação.");
+    }
   }
 
   return (
@@ -253,8 +338,9 @@ export default function PlanoAcaoPage() {
                       <button
                         type="button"
                         className="icon-btn"
-                        title="Editar (em breve)"
-                        aria-label="Editar (em breve)"
+                        title="Editar ação"
+                        aria-label="Editar ação"
+                        onClick={() => abrirModalEdicao(item)}
                       >
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58zM20.71 7.04a1.003 1.003 0 0 0 0-1.42L18.37 3.29a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.83z" />
@@ -264,8 +350,9 @@ export default function PlanoAcaoPage() {
                       <button
                         type="button"
                         className="icon-btn danger"
-                        title="Excluir (em breve)"
-                        aria-label="Excluir (em breve)"
+                        title="Excluir ação"
+                        aria-label="Excluir ação"
+                        onClick={() => handleDeleteItem(item)}
                       >
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M6 7h12v2H6V7zm2 3h8l-.7 10H8.7L8 10zm3-6h2l1 1h4v2H6V5h4l1-1z" />
@@ -327,7 +414,9 @@ export default function PlanoAcaoPage() {
               </div>
               <div className="plano-modal-header-copy">
                 <p className="plano-modal-kicker">Framework 5W2H</p>
-                <h2 id="plano-acao-modal-title">Nova ação estratégica</h2>
+                <h2 id="plano-acao-modal-title">
+                  {editingItemId ? "Editar ação estratégica" : "Nova ação estratégica"}
+                </h2>
                 {activeClient.nome ? (
                   <p className="plano-modal-client-badge">
                     <span className="plano-modal-client-label">Cliente</span>
@@ -531,18 +620,13 @@ export default function PlanoAcaoPage() {
                 </h3>
                 <div className="plano-modal-section-grid plano-modal-duo">
                   <label className="plano-field">
-                    <span className="plano-field-label">Status inicial</span>
-                    <select
-                      className="filter-select plano-input-pro"
-                      value={form.status}
-                      onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
-                    >
-                      {STATUS_PADRAO.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="plano-field-label">Status automático</span>
+                    <input
+                      className="filter-input plano-input-pro"
+                      value={statusPreview}
+                      readOnly
+                      aria-readonly="true"
+                    />
                   </label>
 
                   <label className="plano-field">
@@ -573,7 +657,7 @@ export default function PlanoAcaoPage() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary plano-modal-submit" disabled={salvando}>
-                  {salvando ? "A guardar…" : "Guardar ação"}
+                  {salvando ? "A guardar…" : editingItemId ? "Guardar alterações" : "Guardar ação"}
                 </button>
               </div>
             </form>

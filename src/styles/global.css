@@ -327,16 +327,18 @@ body {
 }
 
 .brand-mark {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  color: #fff;
-  font-size: 0.74rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #2563eb, #0ea5e9);
-  box-shadow: var(--shadow-md);
+  background: transparent;
+  box-shadow: none;
+}
+
+.brand-mark-image {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .brand {
@@ -2341,6 +2343,32 @@ body {
   margin-top: 22px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
+}
+
+.investimento-modal-grid {
+  margin-top: 14px;
+}
+
+.investimento-field-span-2 {
+  grid-column: 1 / -1;
+}
+
+.investimento-modal {
+  width: min(100%, 700px);
+}
+
+.investimento-recorrencia-box {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+}
+
+.investimento-table td:nth-child(3) {
+  white-space: nowrap;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .plano-modal-backdrop {

@@ -34,6 +34,16 @@ const iconBySegment = {
       <path d="M5 3h14a2 2 0 0 1 2 2v14l-4-3-4 3-4-3-4 3V5a2 2 0 0 1 2-2zm3 4v2h8V7H8zm0 4v2h6v-2H8z" />
     </svg>
   ),
+  investimentos: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M11 2h2v20h-2zM4 13h2v9H4zm14-8h2v17h-2zM7 10h2v12H7zm7 5h2v7h-2z" />
+    </svg>
+  ),
+  "campanhas-marketing": (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 19h18v2H3v-2zm2-2V7h3v10H5zm5 0V3h3v14h-3zm5 0v-8h3v8h-3z" />
+    </svg>
+  ),
   configuracao: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.14 7.14 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.14 7.14 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0-.05.94 7.49 7.49 0 0 0 .05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.39 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.13-.55 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z" />
@@ -58,7 +68,9 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand-block">
-        <div className="brand-mark">MD</div>
+        <div className="brand-mark">
+          <img src="/brand-icon-blue.png" alt="My Dot Growth" className="brand-mark-image" />
+        </div>
         <div>
           <div className="brand">My Dot Growth</div>
           <div className="brand-subtitle">Painel estratégico</div>

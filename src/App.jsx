@@ -8,6 +8,8 @@ import PorAreaPage from "./pages/PorAreaPage";
 import ResponsaveisPage from "./pages/ResponsaveisPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import ConfiguracaoClientePage from "./pages/ConfiguracaoClientePage";
+import InvestimentosPage from "./pages/InvestimentosPage";
+import CampanhasMarketingPage from "./pages/CampanhasMarketingPage";
 import LoginPage from "./pages/LoginPage";
 import AdmPage from "./pages/AdmPage";
 import { clearAdminToken, getAdminToken } from "./lib/adminApi";
@@ -133,6 +135,8 @@ export default function App() {
         <Route path="por-area" element={<PorAreaPage />} />
         <Route path="responsaveis" element={<ResponsaveisPage />} />
         <Route path="relatorios" element={<RelatoriosPage />} />
+        <Route path="investimentos" element={<InvestimentosPage />} />
+        <Route path="campanhas-marketing" element={<CampanhasMarketingPage />} />
         <Route path="configuracao" element={<ConfiguracaoClientePage />} />
       </Route>
       <Route path="*" element={<RootRedirect />} />

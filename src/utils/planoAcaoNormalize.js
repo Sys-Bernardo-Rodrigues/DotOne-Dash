@@ -1,7 +1,39 @@
-const STATUS_OK = new Set(["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"]);
-
 export function parsePlanoProgress(value) {
-  return Number(String(value ?? "0").replace("%", "")) || 0;
+  const n = Number(String(value ?? "0").replace("%", "").replace(",", "."));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+export function formatPlanoProgress(value) {
+  return `${parsePlanoProgress(value)}%`;
+}
+
+export function parsePrazoBR(prazo) {
+  const txt = String(prazo ?? "").trim();
+  const m = txt.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, dd, mm, yyyy] = m;
+  const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  if (Number.isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function computePlanoStatus({ progresso, prazo }) {
+  const p = parsePlanoProgress(progresso);
+  if (p >= 100) return "Concluído";
+  if (p <= 0) {
+    const prazoDate = parsePrazoBR(prazo);
+    if (!prazoDate) return "Não Iniciado";
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    return prazoDate < hoje ? "Atrasado" : "Não Iniciado";
+  }
+  const prazoDate = parsePrazoBR(prazo);
+  if (!prazoDate) return "Em Andamento";
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return prazoDate < hoje ? "Atrasado" : "Em Andamento";
 }
 
 /**
@@ -13,12 +45,12 @@ export function normalizePlanoAcaoItems(items) {
     const item = raw && typeof raw === "object" ? raw : {};
     const id = String(item.id ?? "").trim();
     const acao = String(item.acao ?? "").trim();
-    const status = STATUS_OK.has(item.status) ? item.status : "Não Iniciado";
-    const progressoRaw = item.progresso;
-    const progresso =
-      progressoRaw !== undefined && progressoRaw !== null && String(progressoRaw).trim() !== ""
-        ? String(progressoRaw).trim()
-        : "0%";
+    const progresso = formatPlanoProgress(item.progresso);
+    const statusComputado = computePlanoStatus({
+      progresso,
+      prazo: String(item.prazo ?? "").trim(),
+    });
+    const status = statusComputado;
 
     return {
       ...item,

@@ -48,6 +48,8 @@ const clientSchema = new mongoose.Schema(
     status: { type: String, enum: ["Ativo", "Inativo"], default: "Ativo" },
     dashboard: {
       planoAcaoItems: { type: Array, default: [] },
+      investimentos: { type: Array, default: [] },
+      campanhasMarketing: { type: Array, default: [] },
       missao: { type: String, default: "" },
       visao: { type: String, default: "" },
       valores: { type: String, default: "" },
@@ -172,6 +174,128 @@ function nextPlanoAcaoItemId(items) {
   });
   const n = nums.length ? Math.max(...nums) + 1 : 1;
   return `PA-${String(n).padStart(3, "0")}`;
+}
+
+function nextInvestimentoId(items) {
+  const nums = (items || []).map((i) => {
+    const m = String(i?.id || "").match(/^INV-(\d+)$/i);
+    return m ? Number(m[1], 10) : 0;
+  });
+  const n = nums.length ? Math.max(...nums) + 1 : 1;
+  return `INV-${String(n).padStart(3, "0")}`;
+}
+
+function nextCampanhaId(items) {
+  const nums = (items || []).map((i) => {
+    const m = String(i?.id || "").match(/^CMK-(\d+)$/i);
+    return m ? Number(m[1], 10) : 0;
+  });
+  const n = nums.length ? Math.max(...nums) + 1 : 1;
+  return `CMK-${String(n).padStart(3, "0")}`;
+}
+
+function parseProgress(value) {
+  const n = Number(String(value ?? "0").replace("%", "").replace(",", "."));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function formatProgress(value) {
+  return `${parseProgress(value)}%`;
+}
+
+function parsePrazoBR(prazo) {
+  const txt = String(prazo ?? "").trim();
+  const m = txt.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, dd, mm, yyyy] = m;
+  const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  if (Number.isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function computeStatus({ progresso, prazo }) {
+  const p = parseProgress(progresso);
+  if (p >= 100) return "Concluído";
+  const prazoDate = parsePrazoBR(prazo);
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const atrasado = prazoDate ? prazoDate < hoje : false;
+  if (p <= 0) return atrasado ? "Atrasado" : "Não Iniciado";
+  return atrasado ? "Atrasado" : "Em Andamento";
+}
+
+function buildPlanoItemFromBody(body, base = {}) {
+  const prazo = String(body.prazo || base.prazo || "").trim();
+  const progresso = formatProgress(body.progresso ?? base.progresso ?? "0%");
+  return {
+    ...base,
+    acao: String(body.acao ?? base.acao ?? "").trim(),
+    porQue: String(body.porQue ?? base.porQue ?? "").trim(),
+    fase: String(body.fase ?? base.fase ?? "").trim() || "Sem fase",
+    responsavel: String(body.responsavel ?? base.responsavel ?? "").trim(),
+    prazo,
+    area: String(body.area ?? base.area ?? "").trim(),
+    como: String(body.como ?? base.como ?? "").trim(),
+    quanto: String(body.quanto ?? base.quanto ?? "").trim(),
+    progresso,
+    status: computeStatus({ progresso, prazo }),
+  };
+}
+
+function parseMoney(value) {
+  const n = Number(String(value ?? "").replace(/\./g, "").replace(",", "."));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Number(n.toFixed(2)));
+}
+
+function normalizeInvestimento(body, base = {}) {
+  const nome = String(body.nome ?? base.nome ?? "").trim();
+  const valor = parseMoney(body.valor ?? base.valor ?? 0);
+  const data = String(body.data ?? base.data ?? "").trim();
+  const repete = Boolean(body.repete ?? base.repete ?? false);
+  const frequenciaRaw = String(body.frequencia ?? base.frequencia ?? "").trim().toLowerCase();
+  const frequencia = frequenciaRaw === "semanal" ? "semanal" : "mensal";
+  const dataInicio = String(body.dataInicio ?? base.dataInicio ?? "").trim();
+  const dataFim = String(body.dataFim ?? base.dataFim ?? "").trim();
+
+  return {
+    ...base,
+    nome,
+    valor,
+    data,
+    repete,
+    frequencia: repete ? frequencia : "",
+    dataInicio: repete ? dataInicio : "",
+    dataFim: repete ? dataFim : "",
+  };
+}
+
+function computeRoiPercent(investimentoTrafego, faturamento) {
+  const inv = parseMoney(investimentoTrafego);
+  const fat = parseMoney(faturamento);
+  if (inv <= 0) return 0;
+  return Number((((fat - inv) / inv) * 100).toFixed(2));
+}
+
+function normalizeCampanhaMarketing(body, base = {}) {
+  const nome = String(body.nome ?? base.nome ?? "").trim();
+  const investimentoTrafego = parseMoney(
+    body.investimentoTrafego ?? base.investimentoTrafego ?? 0
+  );
+  const faturamento = parseMoney(body.faturamento ?? base.faturamento ?? 0);
+  const data = String(body.data ?? base.data ?? "").trim();
+  const roi = computeRoiPercent(investimentoTrafego, faturamento);
+
+  return {
+    ...base,
+    nome,
+    investimentoTrafego,
+    faturamento,
+    roi,
+    data,
+  };
 }
 
 app.use(
@@ -436,6 +560,8 @@ app.get("/api/clients/:id/dashboard", async (req, res) => {
   if (!client) return res.status(404).json({ message: "Cliente não encontrado." });
   res.json({
     planoAcaoItems: client.dashboard?.planoAcaoItems || [],
+    investimentos: client.dashboard?.investimentos || [],
+    campanhasMarketing: client.dashboard?.campanhasMarketing || [],
   });
 });
 
@@ -455,6 +581,8 @@ app.get(
     nome: client.nome,
     slug: client.slug,
     planoAcaoItems: planoRaw,
+    investimentos: client.dashboard?.investimentos || [],
+    campanhasMarketing: client.dashboard?.campanhasMarketing || [],
     missao: client.dashboard?.missao || "",
     visao: client.dashboard?.visao || "",
     valores: client.dashboard?.valores || "",
@@ -574,33 +702,268 @@ app.post(
 
   const body = req.body || {};
   const items = doc.dashboard?.planoAcaoItems || [];
-  const allowedStatus = ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"];
-  const status = allowedStatus.includes(body.status) ? body.status : "Não Iniciado";
-
   const acao = String(body.acao || "").trim();
   if (!acao) {
     return res.status(400).json({ message: "O quê (ação) é obrigatório." });
   }
 
-  const newItem = {
+  const newItem = buildPlanoItemFromBody(body, {
     id: nextPlanoAcaoItemId(items),
-    acao,
-    porQue: String(body.porQue || "").trim(),
-    fase: String(body.fase || "").trim() || "Sem fase",
-    responsavel: String(body.responsavel || "").trim(),
-    prazo: String(body.prazo || "").trim(),
-    area: String(body.area || "").trim(),
-    como: String(body.como || "").trim(),
-    quanto: String(body.quanto || "").trim(),
-    status,
-    progresso: String(body.progresso || "0%").trim(),
-  };
+  });
 
   doc.dashboard = doc.dashboard || {};
   doc.dashboard.planoAcaoItems = [...items, newItem];
   await doc.save();
 
   res.status(201).json({ planoAcaoItems: doc.dashboard.planoAcaoItems });
+  }
+);
+
+app.patch(
+  "/api/clients/slug/:slug/plano-acao-items/:itemId",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    const itemId = String(req.params.itemId || "").trim();
+    if (!wanted || !itemId) return res.status(400).json({ message: "Parâmetros inválidos." });
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const body = req.body || {};
+    const items = doc.dashboard?.planoAcaoItems || [];
+    const idx = items.findIndex((i) => String(i?.id || "").trim() === itemId);
+    if (idx < 0) return res.status(404).json({ message: "Ação não encontrada." });
+
+    const merged = buildPlanoItemFromBody(body, items[idx]);
+    if (!merged.acao) {
+      return res.status(400).json({ message: "O quê (ação) é obrigatório." });
+    }
+
+    const nextItems = [...items];
+    nextItems[idx] = merged;
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.planoAcaoItems = nextItems;
+    await doc.save();
+
+    res.json({ planoAcaoItems: doc.dashboard.planoAcaoItems });
+  }
+);
+
+app.delete(
+  "/api/clients/slug/:slug/plano-acao-items/:itemId",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    const itemId = String(req.params.itemId || "").trim();
+    if (!wanted || !itemId) return res.status(400).json({ message: "Parâmetros inválidos." });
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.planoAcaoItems || [];
+    const nextItems = items.filter((i) => String(i?.id || "").trim() !== itemId);
+    if (nextItems.length === items.length) {
+      return res.status(404).json({ message: "Ação não encontrada." });
+    }
+
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.planoAcaoItems = nextItems;
+    await doc.save();
+
+    res.json({ planoAcaoItems: doc.dashboard.planoAcaoItems });
+  }
+);
+
+app.post(
+  "/api/clients/slug/:slug/investimentos",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    if (!wanted) return res.status(400).json({ message: "Slug inválido." });
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.investimentos || [];
+    const item = normalizeInvestimento(req.body || {}, { id: nextInvestimentoId(items) });
+    if (!item.nome) return res.status(400).json({ message: "Nome do investimento é obrigatório." });
+    if (!item.data) return res.status(400).json({ message: "Data é obrigatória." });
+    if (item.repete && (!item.dataInicio || !item.dataFim)) {
+      return res.status(400).json({ message: "Data de início e fim são obrigatórias para repetição." });
+    }
+
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.investimentos = [...items, item];
+    await doc.save();
+    res.status(201).json({ investimentos: doc.dashboard.investimentos });
+  }
+);
+
+app.patch(
+  "/api/clients/slug/:slug/investimentos/:investimentoId",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    const investimentoId = String(req.params.investimentoId || "").trim();
+    if (!wanted || !investimentoId) {
+      return res.status(400).json({ message: "Parâmetros inválidos." });
+    }
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.investimentos || [];
+    const idx = items.findIndex((i) => String(i?.id || "").trim() === investimentoId);
+    if (idx < 0) return res.status(404).json({ message: "Investimento não encontrado." });
+
+    const item = normalizeInvestimento(req.body || {}, items[idx]);
+    if (!item.nome) return res.status(400).json({ message: "Nome do investimento é obrigatório." });
+    if (!item.data) return res.status(400).json({ message: "Data é obrigatória." });
+    if (item.repete && (!item.dataInicio || !item.dataFim)) {
+      return res.status(400).json({ message: "Data de início e fim são obrigatórias para repetição." });
+    }
+
+    const nextItems = [...items];
+    nextItems[idx] = item;
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.investimentos = nextItems;
+    await doc.save();
+    res.json({ investimentos: doc.dashboard.investimentos });
+  }
+);
+
+app.delete(
+  "/api/clients/slug/:slug/investimentos/:investimentoId",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    const investimentoId = String(req.params.investimentoId || "").trim();
+    if (!wanted || !investimentoId) {
+      return res.status(400).json({ message: "Parâmetros inválidos." });
+    }
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.investimentos || [];
+    const nextItems = items.filter((i) => String(i?.id || "").trim() !== investimentoId);
+    if (nextItems.length === items.length) {
+      return res.status(404).json({ message: "Investimento não encontrado." });
+    }
+
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.investimentos = nextItems;
+    await doc.save();
+    res.json({ investimentos: doc.dashboard.investimentos });
+  }
+);
+
+app.post(
+  "/api/clients/slug/:slug/campanhas-marketing",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    if (!wanted) return res.status(400).json({ message: "Slug inválido." });
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.campanhasMarketing || [];
+    const item = normalizeCampanhaMarketing(req.body || {}, { id: nextCampanhaId(items) });
+    if (!item.nome) return res.status(400).json({ message: "Nome da campanha é obrigatório." });
+
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.campanhasMarketing = [...items, item];
+    await doc.save();
+    res.status(201).json({ campanhasMarketing: doc.dashboard.campanhasMarketing });
+  }
+);
+
+app.patch(
+  "/api/clients/slug/:slug/campanhas-marketing/:campanhaId",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    const campanhaId = String(req.params.campanhaId || "").trim();
+    if (!wanted || !campanhaId) {
+      return res.status(400).json({ message: "Parâmetros inválidos." });
+    }
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.campanhasMarketing || [];
+    const idx = items.findIndex((i) => String(i?.id || "").trim() === campanhaId);
+    if (idx < 0) return res.status(404).json({ message: "Campanha não encontrada." });
+
+    const item = normalizeCampanhaMarketing(req.body || {}, items[idx]);
+    if (!item.nome) return res.status(400).json({ message: "Nome da campanha é obrigatório." });
+
+    const nextItems = [...items];
+    nextItems[idx] = item;
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.campanhasMarketing = nextItems;
+    await doc.save();
+    res.json({ campanhasMarketing: doc.dashboard.campanhasMarketing });
+  }
+);
+
+app.delete(
+  "/api/clients/slug/:slug/campanhas-marketing/:campanhaId",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    const campanhaId = String(req.params.campanhaId || "").trim();
+    if (!wanted || !campanhaId) {
+      return res.status(400).json({ message: "Parâmetros inválidos." });
+    }
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.campanhasMarketing || [];
+    const nextItems = items.filter((i) => String(i?.id || "").trim() !== campanhaId);
+    if (nextItems.length === items.length) {
+      return res.status(404).json({ message: "Campanha não encontrada." });
+    }
+
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.campanhasMarketing = nextItems;
+    await doc.save();
+    res.json({ campanhasMarketing: doc.dashboard.campanhasMarketing });
   }
 );
 

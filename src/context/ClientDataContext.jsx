@@ -29,6 +29,7 @@ export function ClientDataProvider({ children }) {
   const [planoAcaoItems, setPlanoAcaoItems] = useState([]);
   const [investimentos, setInvestimentos] = useState([]);
   const [campanhasMarketing, setCampanhasMarketing] = useState([]);
+  const [kpisMarketing, setKpisMarketing] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clientNotFound, setClientNotFound] = useState(false);
   const [workspaceForbidden, setWorkspaceForbidden] = useState(false);
@@ -47,6 +48,7 @@ export function ClientDataProvider({ children }) {
         setPlanoAcaoItems([]);
         setInvestimentos([]);
         setCampanhasMarketing([]);
+        setKpisMarketing([]);
         setActiveClientState({ slug: "", nome: "" });
         setClientConfig(defaultClientConfig());
         setClientNotFound(false);
@@ -79,6 +81,7 @@ export function ClientDataProvider({ children }) {
           setPlanoAcaoItems([]);
           setInvestimentos([]);
           setCampanhasMarketing([]);
+          setKpisMarketing([]);
           setClientConfig(defaultClientConfig());
           setActiveClientState({ slug, nome: "" });
           return;
@@ -89,6 +92,7 @@ export function ClientDataProvider({ children }) {
           setPlanoAcaoItems([]);
           setInvestimentos([]);
           setCampanhasMarketing([]);
+          setKpisMarketing([]);
           setClientConfig(defaultClientConfig());
           setActiveClientState({ slug, nome: "" });
           return;
@@ -102,6 +106,7 @@ export function ClientDataProvider({ children }) {
         setCampanhasMarketing(
           Array.isArray(data.campanhasMarketing) ? data.campanhasMarketing : []
         );
+        setKpisMarketing(Array.isArray(data.kpisMarketing) ? data.kpisMarketing : []);
         setClientConfig({
           missao: String(data.missao ?? "").trim(),
           visao: String(data.visao ?? "").trim(),
@@ -116,6 +121,7 @@ export function ClientDataProvider({ children }) {
           setPlanoAcaoItems([]);
           setInvestimentos([]);
           setCampanhasMarketing([]);
+          setKpisMarketing([]);
           setClientConfig(defaultClientConfig());
           setActiveClientState({ slug: clientSlug || "", nome: "" });
           setClientNotFound(false);
@@ -417,6 +423,83 @@ export function ClientDataProvider({ children }) {
     [clientSlug]
   );
 
+  const addKpiMarketing = useCallback(
+    async (payload) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/kpis-marketing`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify(payload),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, message: data.message || "Não foi possível salvar KPI." };
+        }
+        setKpisMarketing(Array.isArray(data.kpisMarketing) ? data.kpisMarketing : []);
+        return { ok: true };
+      } catch {
+        return { ok: false, message: "Falha de rede ao salvar KPI." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const updateKpiMarketing = useCallback(
+    async (kpiId, payload) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/kpis-marketing/${encodeURIComponent(kpiId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify(payload),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, message: data.message || "Não foi possível atualizar KPI." };
+        }
+        setKpisMarketing(Array.isArray(data.kpisMarketing) ? data.kpisMarketing : []);
+        return { ok: true };
+      } catch {
+        return { ok: false, message: "Falha de rede ao atualizar KPI." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const deleteKpiMarketing = useCallback(
+    async (kpiId) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/kpis-marketing/${encodeURIComponent(kpiId)}`,
+          {
+            method: "DELETE",
+            headers: { ...authHeaders() },
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, message: data.message || "Não foi possível excluir KPI." };
+        }
+        setKpisMarketing(Array.isArray(data.kpisMarketing) ? data.kpisMarketing : []);
+        return { ok: true };
+      } catch {
+        return { ok: false, message: "Falha de rede ao excluir KPI." };
+      }
+    },
+    [clientSlug]
+  );
+
   return (
     <ClientDataContext.Provider
       value={{
@@ -436,6 +519,10 @@ export function ClientDataProvider({ children }) {
         addCampanhaMarketing,
         updateCampanhaMarketing,
         deleteCampanhaMarketing,
+        kpisMarketing,
+        addKpiMarketing,
+        updateKpiMarketing,
+        deleteKpiMarketing,
         updateClientConfig,
         ...dashboardData,
       }}

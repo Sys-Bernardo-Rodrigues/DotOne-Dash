@@ -50,6 +50,7 @@ const clientSchema = new mongoose.Schema(
       planoAcaoItems: { type: Array, default: [] },
       investimentos: { type: Array, default: [] },
       campanhasMarketing: { type: Array, default: [] },
+      kpisMarketing: { type: Array, default: [] },
       missao: { type: String, default: "" },
       visao: { type: String, default: "" },
       valores: { type: String, default: "" },
@@ -194,6 +195,15 @@ function nextCampanhaId(items) {
   return `CMK-${String(n).padStart(3, "0")}`;
 }
 
+function nextKpiId(items) {
+  const nums = (items || []).map((i) => {
+    const m = String(i?.id || "").match(/^KPI-(\d+)$/i);
+    return m ? Number(m[1], 10) : 0;
+  });
+  const n = nums.length ? Math.max(...nums) + 1 : 1;
+  return `KPI-${String(n).padStart(3, "0")}`;
+}
+
 function parseProgress(value) {
   const n = Number(String(value ?? "0").replace("%", "").replace(",", "."));
   if (!Number.isFinite(n)) return 0;
@@ -252,6 +262,7 @@ function parseMoney(value) {
 
 function normalizeInvestimento(body, base = {}) {
   const nome = String(body.nome ?? base.nome ?? "").trim();
+  const canal = String(body.canal ?? base.canal ?? "").trim();
   const valor = parseMoney(body.valor ?? base.valor ?? 0);
   const data = String(body.data ?? base.data ?? "").trim();
   const repete = Boolean(body.repete ?? base.repete ?? false);
@@ -263,6 +274,7 @@ function normalizeInvestimento(body, base = {}) {
   return {
     ...base,
     nome,
+    canal,
     valor,
     data,
     repete,
@@ -295,6 +307,68 @@ function normalizeCampanhaMarketing(body, base = {}) {
     faturamento,
     roi,
     data,
+  };
+}
+
+function round2(n) {
+  return Number((Number(n) || 0).toFixed(2));
+}
+
+function safeDiv(num, den) {
+  const d = Number(den) || 0;
+  if (d <= 0) return 0;
+  return Number(num || 0) / d;
+}
+
+function normalizeKpiMarketing(body, base = {}) {
+  const competencia = String(body.competencia ?? base.competencia ?? "").trim();
+  const canal = String(body.canal ?? base.canal ?? "").trim();
+  const investimento = parseMoney(body.investimento ?? base.investimento ?? 0);
+  const leads = Math.max(0, Math.round(Number(body.leads ?? base.leads ?? 0) || 0));
+  const oportunidades = Math.max(
+    0,
+    Math.round(Number(body.oportunidades ?? base.oportunidades ?? 0) || 0)
+  );
+  const vendasNumero = Math.max(
+    0,
+    Math.round(Number(body.vendasNumero ?? base.vendasNumero ?? 0) || 0)
+  );
+  const faturamentoAquisicao = parseMoney(
+    body.faturamentoAquisicao ?? base.faturamentoAquisicao ?? 0
+  );
+  const margemContribuicao = round2(
+    Number(body.margemContribuicao ?? base.margemContribuicao ?? 30) || 0
+  );
+
+  const cpl = round2(safeDiv(investimento, leads));
+  const cpo = round2(safeDiv(investimento, oportunidades));
+  const conversaoFunil = round2(safeDiv(oportunidades * 100, leads));
+  const cpv = round2(safeDiv(investimento, vendasNumero));
+  const ticketMedio = round2(safeDiv(faturamentoAquisicao, vendasNumero));
+  const txConvOportunidades = round2(safeDiv(oportunidades * 100, leads));
+  const txConvVendas = round2(safeDiv(vendasNumero * 100, oportunidades));
+  const roiDireto = round2(
+    safeDiv(faturamentoAquisicao * (margemContribuicao / 100), investimento)
+  );
+
+  return {
+    ...base,
+    competencia,
+    canal,
+    investimento,
+    leads,
+    oportunidades,
+    vendasNumero,
+    faturamentoAquisicao,
+    margemContribuicao,
+    cpl,
+    cpo,
+    conversaoFunil,
+    cpv,
+    ticketMedio,
+    txConvOportunidades,
+    txConvVendas,
+    roiDireto,
   };
 }
 
@@ -562,6 +636,7 @@ app.get("/api/clients/:id/dashboard", async (req, res) => {
     planoAcaoItems: client.dashboard?.planoAcaoItems || [],
     investimentos: client.dashboard?.investimentos || [],
     campanhasMarketing: client.dashboard?.campanhasMarketing || [],
+    kpisMarketing: client.dashboard?.kpisMarketing || [],
   });
 });
 
@@ -583,6 +658,7 @@ app.get(
     planoAcaoItems: planoRaw,
     investimentos: client.dashboard?.investimentos || [],
     campanhasMarketing: client.dashboard?.campanhasMarketing || [],
+    kpisMarketing: client.dashboard?.kpisMarketing || [],
     missao: client.dashboard?.missao || "",
     visao: client.dashboard?.visao || "",
     valores: client.dashboard?.valores || "",
@@ -964,6 +1040,85 @@ app.delete(
     doc.dashboard.campanhasMarketing = nextItems;
     await doc.save();
     res.json({ campanhasMarketing: doc.dashboard.campanhasMarketing });
+  }
+);
+
+app.post(
+  "/api/clients/slug/:slug/kpis-marketing",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    if (!wanted) return res.status(400).json({ message: "Slug inválido." });
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.kpisMarketing || [];
+    const item = normalizeKpiMarketing(req.body || {}, { id: nextKpiId(items) });
+    if (!item.competencia) return res.status(400).json({ message: "Competência é obrigatória." });
+
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.kpisMarketing = [...items, item];
+    await doc.save();
+    res.status(201).json({ kpisMarketing: doc.dashboard.kpisMarketing });
+  }
+);
+
+app.patch(
+  "/api/clients/slug/:slug/kpis-marketing/:kpiId",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    const kpiId = String(req.params.kpiId || "").trim();
+    if (!wanted || !kpiId) return res.status(400).json({ message: "Parâmetros inválidos." });
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.kpisMarketing || [];
+    const idx = items.findIndex((i) => String(i?.id || "").trim() === kpiId);
+    if (idx < 0) return res.status(404).json({ message: "KPI não encontrado." });
+
+    const item = normalizeKpiMarketing(req.body || {}, items[idx]);
+    if (!item.competencia) return res.status(400).json({ message: "Competência é obrigatória." });
+
+    const nextItems = [...items];
+    nextItems[idx] = item;
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.kpisMarketing = nextItems;
+    await doc.save();
+    res.json({ kpisMarketing: doc.dashboard.kpisMarketing });
+  }
+);
+
+app.delete(
+  "/api/clients/slug/:slug/kpis-marketing/:kpiId",
+  authAdmin,
+  requireClientSlugAccess,
+  async (req, res) => {
+    const wanted = String(req.params.slug || "").trim();
+    const kpiId = String(req.params.kpiId || "").trim();
+    if (!wanted || !kpiId) return res.status(400).json({ message: "Parâmetros inválidos." });
+
+    const lean = await findClientLeanBySlug(wanted);
+    if (!lean) return res.status(404).json({ message: "Cliente não encontrado." });
+    const doc = await Client.findById(lean._id);
+    if (!doc) return res.status(404).json({ message: "Cliente não encontrado." });
+
+    const items = doc.dashboard?.kpisMarketing || [];
+    const nextItems = items.filter((i) => String(i?.id || "").trim() !== kpiId);
+    if (nextItems.length === items.length) return res.status(404).json({ message: "KPI não encontrado." });
+
+    doc.dashboard = doc.dashboard || {};
+    doc.dashboard.kpisMarketing = nextItems;
+    await doc.save();
+    res.json({ kpisMarketing: doc.dashboard.kpisMarketing });
   }
 );
 

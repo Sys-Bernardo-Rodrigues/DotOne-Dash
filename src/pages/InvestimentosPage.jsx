@@ -17,6 +17,7 @@ function dateFormat(iso) {
 function buildInitialForm() {
   return {
     nome: "",
+    canal: "",
     valor: "",
     data: "",
     repete: false,
@@ -36,14 +37,22 @@ export default function InvestimentosPage() {
   const [busca, setBusca] = useState("");
   const [filtroRepete, setFiltroRepete] = useState("todos");
   const [filtroFreq, setFiltroFreq] = useState("todas");
+  const canaisCadastrados = useMemo(
+    () =>
+      [...new Set(investimentos.map((i) => String(i?.canal || "").trim()).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b, "pt", { sensitivity: "base" })
+      ),
+    [investimentos]
+  );
 
   const itens = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return [...investimentos]
       .filter((item) => {
         const nome = String(item?.nome || "").toLowerCase();
+        const canal = String(item?.canal || "").toLowerCase();
         const id = String(item?.id || "").toLowerCase();
-        const matchBusca = !termo || nome.includes(termo) || id.includes(termo);
+        const matchBusca = !termo || nome.includes(termo) || canal.includes(termo) || id.includes(termo);
         const matchRepete =
           filtroRepete === "todos" ||
           (filtroRepete === "sim" ? Boolean(item?.repete) : !item?.repete);
@@ -66,6 +75,7 @@ export default function InvestimentosPage() {
     setEditingId(String(item.id || ""));
     setForm({
       nome: String(item.nome || ""),
+      canal: String(item.canal || ""),
       valor: String(item.valor ?? ""),
       data: String(item.data || ""),
       repete: Boolean(item.repete),
@@ -96,6 +106,7 @@ export default function InvestimentosPage() {
     setErro("");
     const payload = {
       nome: form.nome.trim(),
+      canal: form.canal.trim(),
       valor: form.valor,
       data: form.data,
       repete: form.repete,
@@ -177,6 +188,7 @@ export default function InvestimentosPage() {
               <tr>
                 <th>ID</th>
                 <th>Nome do investimento</th>
+                <th>Canal</th>
                 <th>Valor</th>
                 <th>Data</th>
                 <th>Repete</th>
@@ -195,6 +207,7 @@ export default function InvestimentosPage() {
                       <strong>{item.nome}</strong>
                       <div className="table-subline">Lançamento: {dateFormat(item.data)}</div>
                     </td>
+                    <td>{item.canal || "—"}</td>
                     <td>{moneyFormat(item.valor)}</td>
                     <td>{dateFormat(item.data)}</td>
                     <td>
@@ -243,7 +256,7 @@ export default function InvestimentosPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9}>Nenhum investimento cadastrado.</td>
+                  <td colSpan={10}>Nenhum investimento cadastrado.</td>
                 </tr>
               )}
             </tbody>
@@ -312,6 +325,24 @@ export default function InvestimentosPage() {
                       onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
                       required
                     />
+                  </label>
+                  <label className="plano-field">
+                    <span className="plano-field-label">Canal</span>
+                    <input
+                      type="text"
+                      className="filter-input plano-input-pro"
+                      list="investimento-canais-sugestoes"
+                      placeholder="Ex.: Google Ads, Meta Ads, LinkedIn, Influencer"
+                      value={form.canal}
+                      onChange={(e) => setForm((p) => ({ ...p, canal: e.target.value }))}
+                    />
+                    {canaisCadastrados.length ? (
+                      <datalist id="investimento-canais-sugestoes">
+                        {canaisCadastrados.map((canal) => (
+                          <option key={canal} value={canal} />
+                        ))}
+                      </datalist>
+                    ) : null}
                   </label>
                   <label className="plano-field">
                     <span className="plano-field-label">Valor</span>

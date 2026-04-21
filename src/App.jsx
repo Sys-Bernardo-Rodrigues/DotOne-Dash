@@ -11,6 +11,7 @@ import ConfiguracaoClientePage from "./pages/ConfiguracaoClientePage";
 import InvestimentosPage from "./pages/InvestimentosPage";
 import CampanhasMarketingPage from "./pages/CampanhasMarketingPage";
 import KpisPage from "./pages/KpisPage";
+import DashboardPerformancePage from "./pages/DashboardPerformancePage";
 import LoginPage from "./pages/LoginPage";
 import AdmPage from "./pages/AdmPage";
 import { clearAdminToken, getAdminToken } from "./lib/adminApi";
@@ -139,6 +140,7 @@ export default function App() {
         <Route path="investimentos" element={<InvestimentosPage />} />
         <Route path="campanhas-marketing" element={<CampanhasMarketingPage />} />
         <Route path="kpis" element={<KpisPage />} />
+        <Route path="dashboard-performance" element={<DashboardPerformancePage />} />
         <Route path="configuracao" element={<ConfiguracaoClientePage />} />
       </Route>
       <Route path="*" element={<RootRedirect />} />

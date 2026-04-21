@@ -2371,6 +2371,46 @@ body {
   color: #0f172a;
 }
 
+.performance-updated-at {
+  align-self: center;
+  justify-self: end;
+}
+
+.performance-filter-card {
+  margin-top: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.performance-filters-row {
+  align-items: center;
+  grid-template-columns: minmax(160px, 220px) minmax(160px, 220px) auto 1fr;
+  gap: 10px;
+}
+
+.performance-filters-row .filter-input {
+  width: 100%;
+}
+
+.performance-filter-clear-btn {
+  white-space: nowrap;
+}
+
+.performance-updated-at {
+  text-align: right;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 980px) {
+  .performance-filters-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .performance-updated-at {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+}
+
 .plano-modal-backdrop {
   backdrop-filter: blur(4px);
 }

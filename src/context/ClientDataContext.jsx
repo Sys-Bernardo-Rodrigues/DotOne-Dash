@@ -33,6 +33,8 @@ export function ClientDataProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [clientNotFound, setClientNotFound] = useState(false);
   const [workspaceForbidden, setWorkspaceForbidden] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const dashboardData = useMemo(
     () => deriveDashboardData(planoAcaoItems),
@@ -116,6 +118,7 @@ export function ClientDataProvider({ children }) {
           slug: data.slug || slug,
           nome: data.nome || "",
         });
+        setLastUpdatedAt(new Date().toISOString());
       } catch {
         if (!cancelled) {
           setPlanoAcaoItems([]);
@@ -136,7 +139,11 @@ export function ClientDataProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [clientSlug]);
+  }, [clientSlug, reloadKey]);
+
+  const refreshClientData = useCallback(() => {
+    setReloadKey((k) => k + 1);
+  }, []);
 
   const addPlanoAcaoItem = useCallback(
     async (payload) => {
@@ -508,6 +515,8 @@ export function ClientDataProvider({ children }) {
         isLoading,
         clientNotFound,
         workspaceForbidden,
+        lastUpdatedAt,
+        refreshClientData,
         addPlanoAcaoItem,
         updatePlanoAcaoItem,
         deletePlanoAcaoItem,

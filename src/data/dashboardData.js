@@ -8,6 +8,7 @@ export const menuItems = [
   { segment: "investimentos", label: "Investimentos" },
   { segment: "campanhas-marketing", label: "Campanhas Marketing" },
   { segment: "kpis", label: "KPIs" },
+  { segment: "dashboard-performance", label: "Dashboard Performance" },
   { segment: "configuracao", label: "Configurações" },
 ];
 

@@ -3,11 +3,17 @@ import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import fs from "node:fs";
+import http from "node:http";
+import https from "node:https";
 import { buildChartPayload } from "../../src/utils/chartData.js";
 import {
   authAdmin,
   createAdminToken,
   createUserToken,
+  podeAcessarSlugCliente,
   requireAdmAdministrador,
   requireClientSlugAccess,
   temAcessoPainelAdministracaoCompleta,
@@ -17,10 +23,16 @@ import { assertPerfilValido } from "./accessProfiles.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
+const ENABLE_HTTPS = String(process.env.ENABLE_HTTPS || "false").toLowerCase() === "true";
+const SSL_CERT_FILE = String(process.env.SSL_CERT_FILE || "").trim();
+const SSL_KEY_FILE = String(process.env.SSL_KEY_FILE || "").trim();
 const MONGODB_URI =
   process.env.MONGODB_URI ||
   "mongodb://admin:admin123@localhost:27017/mydotgrowth?authSource=admin";
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const CLIENT_ORIGINS = String(process.env.CLIENT_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const userSchema = new mongoose.Schema(
   {
@@ -320,6 +332,25 @@ function safeDiv(num, den) {
   return Number(num || 0) / d;
 }
 
+async function requireClientIdAccess(req, res, next) {
+  const clientId = String(req.params.id || "").trim();
+  if (!clientId) return res.status(400).json({ message: "ID inválido." });
+
+  const client = await Client.findById(clientId).select("slug").lean();
+  if (!client) return res.status(404).json({ message: "Cliente não encontrado." });
+
+  if (temAcessoPainelAdministracaoCompleta(req.auth)) {
+    req.clientById = client;
+    return next();
+  }
+  const clientSlug = String(client.slug || "").trim();
+  if (!clientSlug || !podeAcessarSlugCliente(req.auth, clientSlug)) {
+    return res.status(403).json({ message: "Sem permissão para aceder a este cliente." });
+  }
+  req.clientById = client;
+  return next();
+}
+
 function normalizeKpiMarketing(body, base = {}) {
   const competencia = String(body.competencia ?? base.competencia ?? "").trim();
   const canal = String(body.canal ?? base.canal ?? "").trim();
@@ -374,10 +405,30 @@ function normalizeKpiMarketing(body, base = {}) {
 
 app.use(
   cors({
-    origin: CLIENT_ORIGIN,
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (CLIENT_ORIGINS.includes(origin)) return callback(null, true);
+      return callback(null, false);
+    },
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type"],
+    optionsSuccessStatus: 204,
+  })
+);
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
 app.use(express.json());
+
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Muitas tentativas de login. Tente novamente em alguns minutos." },
+});
 
 app.get("/api/health", (_req, res) => {
   const now = new Date();
@@ -388,7 +439,7 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", loginRateLimiter, async (req, res) => {
   const { email, password } = req.body || {};
   const e = String(email ?? "")
     .trim()
@@ -629,7 +680,7 @@ app.delete(
   }
 );
 
-app.get("/api/clients/:id/dashboard", async (req, res) => {
+app.get("/api/clients/:id/dashboard", authAdmin, requireClientIdAccess, async (req, res) => {
   const client = await Client.findById(req.params.id).lean();
   if (!client) return res.status(404).json({ message: "Cliente não encontrado." });
   res.json({
@@ -1124,8 +1175,25 @@ app.delete(
 
 async function start() {
   await mongoose.connect(MONGODB_URI);
-  app.listen(PORT, () => {
-    console.log(`API rodando em http://localhost:${PORT}`);
+  let server;
+  let protocol = "http";
+
+  if (ENABLE_HTTPS) {
+    if (!SSL_CERT_FILE || !SSL_KEY_FILE) {
+      throw new Error(
+        "HTTPS ativado, mas SSL_CERT_FILE/SSL_KEY_FILE não foram informados."
+      );
+    }
+    const cert = fs.readFileSync(SSL_CERT_FILE);
+    const key = fs.readFileSync(SSL_KEY_FILE);
+    server = https.createServer({ key, cert }, app);
+    protocol = "https";
+  } else {
+    server = http.createServer(app);
+  }
+
+  server.listen(PORT, () => {
+    console.log(`API rodando em ${protocol}://localhost:${PORT}`);
   });
 }
 

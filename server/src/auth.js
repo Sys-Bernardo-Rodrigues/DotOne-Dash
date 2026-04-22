@@ -1,13 +1,52 @@
 import jwt from "jsonwebtoken";
 import { perfilPode } from "./accessProfiles.js";
 
+const NODE_ENV = String(process.env.NODE_ENV || "development").toLowerCase();
+const IS_PRODUCTION = NODE_ENV === "production";
+const DEFAULT_DEV_JWT_SECRET = "dev-only-ALTERE-JWT_SECRET-em-producao";
+const DEFAULT_DEV_ADMIN_PASSWORD = "admin123";
+
+function hasSecretComplexity(value) {
+  const txt = String(value || "");
+  if (txt.length < 24) return false;
+  const hasLower = /[a-z]/.test(txt);
+  const hasUpper = /[A-Z]/.test(txt);
+  const hasDigit = /\d/.test(txt);
+  const hasSymbol = /[^a-zA-Z0-9]/.test(txt);
+  return hasLower && hasUpper && hasDigit && hasSymbol;
+}
+
+function validateSecurityConfigOrFail() {
+  if (!IS_PRODUCTION) return;
+  const jwtSecret = String(process.env.JWT_SECRET || "");
+  const adminPassword = String(process.env.ADMIN_PASSWORD || "");
+  const errors = [];
+
+  if (!hasSecretComplexity(jwtSecret) || jwtSecret === DEFAULT_DEV_JWT_SECRET) {
+    errors.push(
+      "JWT_SECRET inválido/inseguro. Use no mínimo 24 caracteres com maiúsculas, minúsculas, números e símbolos."
+    );
+  }
+  if (!hasSecretComplexity(adminPassword) || adminPassword === DEFAULT_DEV_ADMIN_PASSWORD) {
+    errors.push(
+      "ADMIN_PASSWORD inválido/inseguro. Use no mínimo 24 caracteres com maiúsculas, minúsculas, números e símbolos."
+    );
+  }
+
+  if (errors.length) {
+    throw new Error(`[auth] Configuração de segurança inválida em produção:\n- ${errors.join("\n- ")}`);
+  }
+}
+
+validateSecurityConfigOrFail();
+
 const JWT_SECRET =
-  process.env.JWT_SECRET || "dev-only-ALTERE-JWT_SECRET-em-producao";
+  process.env.JWT_SECRET || DEFAULT_DEV_JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || "admin@mydotgrowth.local")
   .trim()
   .toLowerCase();
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "admin123");
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || DEFAULT_DEV_ADMIN_PASSWORD);
 
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
   console.error(

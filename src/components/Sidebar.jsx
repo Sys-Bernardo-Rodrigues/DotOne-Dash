@@ -1,65 +1,54 @@
+import { useMemo, useState } from "react";
 import { Link, NavLink, useParams } from "react-router-dom";
-import { menuItems } from "../data/dashboardData";
+import {
+  BarChart3,
+  Building2,
+  Calendar,
+  ChevronLeft,
+  ClipboardList,
+  FileText,
+  LayoutDashboard,
+  LayoutGrid,
+  LineChart,
+  LogOut,
+  Megaphone,
+  Settings,
+  Users,
+  Wallet,
+} from "lucide-react";
+import { navGroups } from "../data/dashboardData";
 import { useClientData } from "../context/ClientDataContext";
 import { clearAdminToken } from "../lib/adminApi";
 
-const iconBySegment = {
-  "": (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3l9 7h-2v10h-5v-6H10v6H5V10H3l9-7z" />
-    </svg>
-  ),
-  "plano-de-acao": (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h8V8H8zm0 4v2h8v-2H8z" />
-    </svg>
-  ),
-  cronograma: (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M7 2h2v2h6V2h2v2h3a2 2 0 0 1 2 2v13a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2h3V2zm13 8H4v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9z" />
-    </svg>
-  ),
-  "por-area": (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 13h8v8H3v-8zm10-10h8v8h-8V3zM3 3h8v8H3V3zm10 10h8v8h-8v-8z" />
-    </svg>
-  ),
-  responsaveis: (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M16 11a4 4 0 1 0-3.999-4A4 4 0 0 0 16 11zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm0 2c-2.33 0-7 1.17-7 3.5V20h10v-3.5C11 14.17 6.33 13 4 13zm12 0c-.29 0-.62.02-.97.05A4.97 4.97 0 0 1 21 16.5V20h3v-3.5c0-2.33-4.67-3.5-7-3.5z" />
-    </svg>
-  ),
-  relatorios: (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 3h14a2 2 0 0 1 2 2v14l-4-3-4 3-4-3-4 3V5a2 2 0 0 1 2-2zm3 4v2h8V7H8zm0 4v2h6v-2H8z" />
-    </svg>
-  ),
-  investimentos: (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M11 2h2v20h-2zM4 13h2v9H4zm14-8h2v17h-2zM7 10h2v12H7zm7 5h2v7h-2z" />
-    </svg>
-  ),
-  "campanhas-marketing": (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 19h18v2H3v-2zm2-2V7h3v10H5zm5 0V3h3v14h-3zm5 0v-8h3v8h-3z" />
-    </svg>
-  ),
-  kpis: (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 4h16v2H4V4zm0 7h10v2H4v-2zm0 7h7v2H4v-2zm12-8h4v10h-4V10z" />
-    </svg>
-  ),
-  "dashboard-performance": (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 19h18v2H3v-2zM6 10h3v7H6v-7zm5-4h3v11h-3V6zm5 2h3v9h-3V8z" />
-    </svg>
-  ),
-  configuracao: (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.14 7.14 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.14 7.14 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0-.05.94 7.49 7.49 0 0 0 .05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.39 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.13-.55 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z" />
-    </svg>
-  ),
+const GROUP_TONE = {
+  Estratégia: "violet",
+  Marketing: "cyan",
+  Sistema: "slate",
 };
+
+const MOBILE_QUICK = ["", "plano-de-acao", "kpis", "configuracao"];
+
+const ICON_SIZE = 16;
+const ICON_STROKE = 2;
+
+const iconBySegment = {
+  "": LayoutDashboard,
+  "plano-de-acao": ClipboardList,
+  cronograma: Calendar,
+  "por-area": LayoutGrid,
+  responsaveis: Users,
+  relatorios: FileText,
+  investimentos: Wallet,
+  "campanhas-marketing": Megaphone,
+  kpis: BarChart3,
+  "dashboard-performance": LineChart,
+  configuracao: Settings,
+};
+
+function NavIcon({ segment }) {
+  const Icon = iconBySegment[segment] || LayoutDashboard;
+  return <Icon size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden="true" />;
+}
 
 function menuHref(clientSlug, segment) {
   if (!clientSlug) return "/";
@@ -67,60 +56,180 @@ function menuHref(clientSlug, segment) {
   return `/${clientSlug}/${segment}`;
 }
 
+function clientInitial(nome) {
+  const n = String(nome || "").trim();
+  return n ? n.charAt(0).toUpperCase() : "?";
+}
+
 export default function Sidebar() {
   const { clientSlug } = useParams();
   const { activeClient, clientConfig } = useClientData();
-  const nomeCliente = activeClient.nome || "Carregando…";
+  const [expanded, setExpanded] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const nomeCliente = activeClient.nome || "Workspace";
+  const slugLabel = clientSlug || "…";
   const textoMissao =
     clientConfig.missao?.trim() ||
-    "Defina a missão em Configurações para exibir aqui.";
+    "Configure a missão em Configurações → Geral.";
+
+  const flatItems = useMemo(
+    () => navGroups.flatMap((g) => g.items),
+    [],
+  );
+
+  const quickMobileItems = useMemo(() => {
+    const bySegment = new Map(flatItems.map((item) => [item.segment, item]));
+    return MOBILE_QUICK.map((seg) => bySegment.get(seg)).filter(Boolean);
+  }, [flatItems]);
 
   return (
-    <aside className="sidebar">
-      <div className="brand-block">
-        <div className="brand-mark">
-          <img src="/brand-icon-blue.png" alt="My Dot Growth" className="brand-mark-image" />
-        </div>
-        <div>
-          <div className="brand">My Dot Growth</div>
-          <div className="brand-subtitle">Painel estratégico</div>
-        </div>
-      </div>
-
-      <div className="client-badge">
-        <h4>Cliente</h4>
-        <strong>{nomeCliente}</strong>
-      </div>
-
-      <nav className="nav-links">
-        {menuItems.map((item) => (
-          <NavLink
-            key={item.segment || "inicio"}
-            to={menuHref(clientSlug, item.segment)}
-            end={item.segment === ""}
-            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
+    <div className="workspace-nav-col">
+      <aside
+        className={`workspace-nav${expanded ? " workspace-nav--open" : " workspace-nav--compact"}`}
+        aria-label="Navegação do workspace"
+      >
+        <header className="workspace-nav__head">
+          <Link to="/adm/home" className="workspace-nav__brand" title="Trocar workspace">
+            <span className="workspace-nav__avatar">{clientInitial(nomeCliente)}</span>
+            {expanded ? (
+              <span className="workspace-nav__brand-copy">
+                <strong title={nomeCliente}>{nomeCliente}</strong>
+                <small>/{slugLabel}</small>
+              </span>
+            ) : null}
+          </Link>
+          <button
+            type="button"
+            className="workspace-nav__fold"
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? "Compactar menu" : "Expandir menu"}
+            aria-expanded={expanded}
           >
-            <span className="nav-icon">{iconBySegment[item.segment]}</span>
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-      </nav>
+            <ChevronLeft size={16} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </header>
 
-      <div className="mission-card">
-        <h3>Missão</h3>
-        <p>{textoMissao}</p>
-      </div>
+        <nav className="workspace-nav__menu">
+          {navGroups.map((group) => {
+            const tone = GROUP_TONE[group.title] || "slate";
+            return (
+              <section
+                key={group.title}
+                className={`workspace-nav__group workspace-nav__group--${tone}`}
+              >
+                {expanded ? (
+                  <h3 className="workspace-nav__group-title">{group.title}</h3>
+                ) : (
+                  <span className="workspace-nav__group-rule" title={group.title} aria-hidden="true" />
+                )}
+                <ul className="workspace-nav__list">
+                  {group.items.map((item) => (
+                    <li key={item.segment || "inicio"}>
+                      <NavLink
+                        to={menuHref(clientSlug, item.segment)}
+                        end={item.segment === "" || item.segment !== "configuracao"}
+                        title={item.label}
+                        className={({ isActive }) =>
+                          `workspace-nav__link${isActive ? " is-active" : ""}`
+                        }
+                      >
+                        <span className="workspace-nav__link-icon">
+                          <NavIcon segment={item.segment} />
+                        </span>
+                        {expanded ? (
+                          <span className="workspace-nav__link-label">{item.label}</span>
+                        ) : null}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </nav>
 
-      <div className="sidebar-exit-wrap">
-        <Link to="/login" className="nav-link nav-link-exit" onClick={() => clearAdminToken()}>
-          <span className="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
-            </svg>
-          </span>
-          <span>Sair</span>
-        </Link>
+        {expanded ? (
+          <div className="workspace-nav__mission">
+            <span>Missão</span>
+            <p>{textoMissao}</p>
+          </div>
+        ) : null}
+
+        <footer className="workspace-nav__foot">
+          <Link to="/adm/home" className="workspace-nav__foot-link" title="Trocar cliente">
+            <Building2 size={15} strokeWidth={2} aria-hidden="true" />
+            {expanded ? <span>Clientes</span> : null}
+          </Link>
+          <Link
+            to="/login"
+            className="workspace-nav__foot-link workspace-nav__foot-link--muted"
+            title="Sair"
+            onClick={() => clearAdminToken()}
+          >
+            <LogOut size={15} strokeWidth={2} aria-hidden="true" />
+            {expanded ? <span>Sair</span> : null}
+          </Link>
+        </footer>
+      </aside>
+
+      <div className={`workspace-nav-mobile${mobileOpen ? " is-open" : ""}`}>
+        <nav className="workspace-nav-mobile__bar" aria-label="Atalhos rápidos">
+          {quickMobileItems.map((item) => (
+            <NavLink
+              key={item.segment || "inicio"}
+              to={menuHref(clientSlug, item.segment)}
+              end={item.segment === "" || item.segment !== "configuracao"}
+              className={({ isActive }) =>
+                `workspace-nav-mobile__chip${isActive ? " is-active" : ""}`
+              }
+            >
+              <span className="workspace-nav-mobile__chip-icon">
+                <NavIcon segment={item.segment} />
+              </span>
+              <span>{item.label.split(" ")[0]}</span>
+            </NavLink>
+          ))}
+          <button
+            type="button"
+            className="workspace-nav-mobile__more"
+            aria-expanded={mobileOpen}
+            aria-label={mobileOpen ? "Fechar menu" : "Abrir menu completo"}
+            onClick={() => setMobileOpen((v) => !v)}
+          >
+            Menu
+          </button>
+        </nav>
+
+        {mobileOpen ? (
+          <div className="workspace-nav-mobile__sheet">
+            <div className="workspace-nav-mobile__sheet-head">
+              <strong>{nomeCliente}</strong>
+              <span>/{slugLabel}</span>
+            </div>
+            {navGroups.map((group) => (
+              <div key={group.title} className="workspace-nav-mobile__group">
+                <span>{group.title}</span>
+                <div className="workspace-nav-mobile__grid">
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.segment || "inicio"}
+                      to={menuHref(clientSlug, item.segment)}
+                      end={item.segment === "" || item.segment !== "configuracao"}
+                      className={({ isActive }) =>
+                        `workspace-nav-mobile__tile${isActive ? " is-active" : ""}`
+                      }
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
-    </aside>
+    </div>
   );
 }

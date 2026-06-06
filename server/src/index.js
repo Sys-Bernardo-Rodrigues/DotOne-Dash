@@ -20,6 +20,9 @@ import {
   validateAdminCredentials,
 } from "./auth.js";
 import { assertPerfilValido } from "./accessProfiles.js";
+import { registerIntegrationRoutes } from "./integrations/routes.js";
+import { startIntegrationCron } from "./integrations/cron.js";
+import { initPlatformSettings } from "./platformSettings.js";
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
@@ -67,6 +70,49 @@ const clientSchema = new mongoose.Schema(
       visao: { type: String, default: "" },
       valores: { type: String, default: "" },
     },
+    integrations: {
+      meta: {
+        status: {
+          type: String,
+          enum: ["disconnected", "connected", "error"],
+          default: "disconnected",
+        },
+        accessTokenEnc: { type: String, default: "" },
+        tokenExpiresAt: { type: Date },
+        adAccountId: { type: String, default: "" },
+        adAccountName: { type: String, default: "" },
+        pixelId: { type: String, default: "" },
+        lastSyncAt: { type: Date },
+        pixelLastSyncAt: { type: Date },
+        lastError: { type: String, default: "" },
+        autoSync: { type: Boolean, default: true },
+      },
+      google: {
+        status: {
+          type: String,
+          enum: ["disconnected", "connected", "error"],
+          default: "disconnected",
+        },
+        refreshTokenEnc: { type: String, default: "" },
+        accessTokenEnc: { type: String, default: "" },
+        tokenExpiresAt: { type: Date },
+        customerId: { type: String, default: "" },
+        customerName: { type: String, default: "" },
+        lastSyncAt: { type: Date },
+        lastError: { type: String, default: "" },
+        autoSync: { type: Boolean, default: true },
+      },
+      alertDismissals: { type: Object, default: {} },
+      notificationEmails: [{ type: String, trim: true, lowercase: true }],
+      notifyOnAlerts: { type: Boolean, default: true },
+      notifyEmail: { type: Boolean, default: true },
+      notifySlack: { type: Boolean, default: true },
+      notificationSentAt: { type: Object, default: {} },
+      notificationLog: { type: Array, default: [] },
+      notifyWeeklyReport: { type: Boolean, default: true },
+      lastWeeklyReportAt: { type: Date },
+    },
+    marketingSnapshots: { type: Array, default: [] },
   },
   { timestamps: true }
 );
@@ -382,6 +428,14 @@ function normalizeKpiMarketing(body, base = {}) {
     safeDiv(faturamentoAquisicao * (margemContribuicao / 100), investimento)
   );
 
+  const source = body.source !== undefined ? String(body.source ?? "").trim() : base.source;
+  const externalRef =
+    body.externalRef !== undefined
+      ? String(body.externalRef ?? "").trim()
+      : base.externalRef;
+  const syncedAt =
+    body.syncedAt !== undefined ? String(body.syncedAt ?? "").trim() : base.syncedAt;
+
   return {
     ...base,
     competencia,
@@ -400,6 +454,9 @@ function normalizeKpiMarketing(body, base = {}) {
     txConvOportunidades,
     txConvVendas,
     roiDireto,
+    ...(source ? { source } : {}),
+    ...(externalRef ? { externalRef } : {}),
+    ...(syncedAt ? { syncedAt } : {}),
   };
 }
 
@@ -1173,8 +1230,17 @@ app.delete(
   }
 );
 
+registerIntegrationRoutes(app, {
+  Client,
+  findClientLeanBySlug,
+  nextKpiId,
+  normalizeKpiMarketing,
+});
+
 async function start() {
   await mongoose.connect(MONGODB_URI);
+  await initPlatformSettings();
+  startIntegrationCron({ Client, nextKpiId, normalizeKpiMarketing });
   let server;
   let protocol = "http";
 

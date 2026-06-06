@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { setAdminToken } from "../lib/adminApi";
 import {
   canAccessClientSlug,
@@ -9,6 +9,12 @@ import {
 } from "../lib/session";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+
+const BENEFICIOS = [
+  "Dashboards Meta vs Google",
+  "KPIs e plano de ação integrados",
+  "Cronograma Gantt e alertas",
+];
 
 function destinoAposLogin(payload, redirectParam) {
   const padrao = postLoginDestination(payload);
@@ -21,7 +27,8 @@ function destinoAposLogin(payload, redirectParam) {
     return redirectParam;
   }
   const slug = redirectParam.replace(/^\//, "").split("/")[0];
-  if (slug && slug !== "login" && canAccessClientSlug(payload, slug)) return redirectParam;
+  const reservados = new Set(["login", "explicando", "adm"]);
+  if (slug && !reservados.has(slug) && canAccessClientSlug(payload, slug)) return redirectParam;
   return padrao;
 }
 
@@ -69,44 +76,55 @@ export default function LoginPage() {
   }
 
   return (
-    <section className="login-page">
-      <div className="login-shell">
-        <article className="login-panel login-panel-info">
-          <div className="login-panel-inner">
-            <div className="login-logo">
-              <div className="brand-mark">
-                <img src="/brand-icon-blue.png" alt="My Dot Growth" className="brand-mark-image" />
-              </div>
-              <div>
-                <strong>My Dot Growth</strong>
-                <p>Plataforma de gestão estratégica</p>
-              </div>
+    <div className="login-page">
+      <div className="login-page__mesh" aria-hidden="true" />
+
+      <header className="landing-header">
+        <div className="landing-header__inner">
+          <Link to="/" className="landing-brand">
+            <img src="/brand-icon-blue.png" alt="" />
+            <div>
+              <strong>My Dot Growth</strong>
+              <span>Growth Command Center</span>
             </div>
+          </Link>
+          <Link to="/" className="login-page__back" aria-label="Voltar ao início">
+            ← Início
+          </Link>
+        </div>
+      </header>
 
-            <h1>Controle total do plano estratégico em um único painel</h1>
+      <main className="login-main">
+        <div className="login-layout">
+          <aside className="login-aside">
+            <span className="landing-hero__badge">
+              <span className="landing-hero__pulse" />
+              Acesso à plataforma
+            </span>
+            <h1>
+              Entre no seu <em>workspace</em>
+            </h1>
             <p>
-              Monitore cronograma, metas, responsáveis e decisões críticas com visão
-              executiva em tempo real.
+              Utilize as credenciais da contratação para aceder a KPIs, marketing e gestão de
+              projetos num único painel.
             </p>
-
-            <ul className="login-benefits">
-              <li>Visão integrada por área e responsável</li>
-              <li>Priorização de ações críticas com rapidez</li>
-              <li>Acompanhamento de progresso por fase</li>
+            <ul className="login-aside__list">
+              {BENEFICIOS.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
-          </div>
-        </article>
+          </aside>
 
-        <article className="login-panel login-panel-form">
-          <div className="login-panel-inner login-panel-form-inner">
-            <div className="login-form-head">
-              <span className="login-kicker">Acesso à plataforma</span>
-              <h2>Entrar</h2>
+          <div className="login-card">
+            <div className="login-card__head">
+              <span className="landing-eyebrow">Login</span>
+              <h2>Bem-vindo de volta</h2>
+              <p>Introduza o seu e-mail e senha para continuar.</p>
             </div>
 
             <form className="login-form" onSubmit={handleSubmit}>
-              <div className="login-field">
-                <label htmlFor="email">E-mail</label>
+              <label className="login-field">
+                <span>E-mail</span>
                 <input
                   id="email"
                   type="email"
@@ -116,47 +134,34 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={enviando}
                 />
-              </div>
+              </label>
 
-              <div className="login-field">
-                <label htmlFor="password">Senha</label>
+              <label className="login-field">
+                <span>Senha</span>
                 <input
                   id="password"
                   type="password"
                   autoComplete="current-password"
-                  placeholder="Senha definida no servidor (.env)"
+                  placeholder="Senha definida no servidor"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={enviando}
                 />
-              </div>
+              </label>
 
-              {erro ? <p className="login-form-error">{erro}</p> : null}
+              {erro ? <p className="login-form-error" role="alert">{erro}</p> : null}
 
-              <div className="login-actions-row">
-                <label className="login-remember">
-                  <input type="checkbox" disabled />
-                  <span>Lembrar de mim</span>
-                </label>
-                <button type="button" className="login-forgot" disabled>
-                  Esqueci minha senha
-                </button>
-              </div>
-
-              <button type="submit" className="btn-primary login-submit" disabled={enviando}>
-                {enviando ? "Entrando…" : "Entrar"}
+              <button
+                type="submit"
+                className="landing-btn landing-btn--primary login-submit"
+                disabled={enviando}
+              >
+                {enviando ? "Entrando…" : "Entrar na plataforma"}
               </button>
             </form>
-
-            <p className="login-disclaimer">
-              Conta de sistema (ADMIN_EMAIL / ADMIN_PASSWORD no servidor) ou utilizador
-              criado no painel de administração. Utilizadores com perfil Administrador acedem ao
-              painel /adm; os restantes entram diretamente no cliente (ou à escolha de cliente, se
-              tiverem mais do que um).
-            </p>
           </div>
-        </article>
-      </div>
-    </section>
+        </div>
+      </main>
+    </div>
   );
 }

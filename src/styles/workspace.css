@@ -1,0 +1,62 @@
+/* ─── Workspace /:clientSlug — extensões do tema landing ─── */
+.workspace-stats {
+  margin-bottom: 20px;
+}
+
+.workspace-stats .landing-stat {
+  min-height: 100%;
+}
+
+.workspace-stats .landing-stat dd {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.landing-stat--danger {
+  border-top-color: #ef4444;
+}
+
+.landing-stat--danger dd {
+  color: #b91c1c;
+}
+
+.workspace-stat-note {
+  display: block;
+  margin-top: 6px;
+  font-family: "Outfit", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.workspace-stat-progress .workspace-stat-bar {
+  margin-top: 10px;
+  height: 8px;
+}
+
+.workspace-stat-progress dd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+@media (max-width: 1120px) {
+  .app-main__mesh {
+    left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace-stats.metrics-grid-5 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-header__badge .landing-hero__pulse {
+    animation: none;
+  }
+}

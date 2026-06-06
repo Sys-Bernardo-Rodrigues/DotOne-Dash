@@ -1,16 +1,32 @@
-export const menuItems = [
-  { segment: "", label: "Visão Geral" },
-  { segment: "plano-de-acao", label: "Plano de Ação" },
-  { segment: "cronograma", label: "Cronograma" },
-  { segment: "por-area", label: "Por Área" },
-  { segment: "responsaveis", label: "Responsáveis" },
-  { segment: "relatorios", label: "Relatórios" },
-  { segment: "investimentos", label: "Investimentos" },
-  { segment: "campanhas-marketing", label: "Campanhas Marketing" },
-  { segment: "kpis", label: "KPIs" },
-  { segment: "dashboard-performance", label: "Dashboard Performance" },
-  { segment: "configuracao", label: "Configurações" },
+export const navGroups = [
+  {
+    title: "Estratégia",
+    items: [
+      { segment: "", label: "Visão Geral" },
+      { segment: "plano-de-acao", label: "Plano de Ação" },
+      { segment: "cronograma", label: "Cronograma" },
+      { segment: "por-area", label: "Por Área" },
+      { segment: "responsaveis", label: "Responsáveis" },
+      { segment: "relatorios", label: "Relatórios" },
+    ],
+  },
+  {
+    title: "Marketing",
+    items: [
+      { segment: "investimentos", label: "Investimentos" },
+      { segment: "campanhas-marketing", label: "Campanhas" },
+      { segment: "kpis", label: "KPIs" },
+      { segment: "dashboard-performance", label: "Performance" },
+    ],
+  },
+  {
+    title: "Sistema",
+    items: [{ segment: "configuracao", label: "Configurações" }],
+  },
 ];
+
+/** Lista plana (legado / utilitários) */
+export const menuItems = navGroups.flatMap((group) => group.items);
 
 export const metricasVisaoGeral = [
   { titulo: "Total de Ações", valor: "17" },

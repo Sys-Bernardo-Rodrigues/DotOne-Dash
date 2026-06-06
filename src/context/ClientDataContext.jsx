@@ -35,6 +35,10 @@ export function ClientDataProvider({ children }) {
   const [workspaceForbidden, setWorkspaceForbidden] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [integrationsState, setIntegrationsState] = useState(null);
+  const integrationAlerts = integrationsState?.alerts || [];
+  const pixelSnapshot = integrationsState?.pixelSnapshot || null;
+  const [marketingPerformance, setMarketingPerformance] = useState(null);
 
   const dashboardData = useMemo(
     () => deriveDashboardData(planoAcaoItems),
@@ -507,6 +511,460 @@ export function ClientDataProvider({ children }) {
     [clientSlug]
   );
 
+  const loadIntegrations = useCallback(async () => {
+    const slug = clientSlug?.trim();
+    if (!slug) {
+      setIntegrationsState(null);
+      return { ok: false, message: "Cliente não identificado." };
+    }
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations`,
+        { headers: { ...authHeaders() } }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Falha ao carregar integrações." };
+      }
+      setIntegrationsState(data);
+      return { ok: true, data };
+    } catch {
+      return { ok: false, message: "Falha de rede ao carregar integrações." };
+    }
+  }, [clientSlug]);
+
+  const loadMarketingPerformance = useCallback(
+    async (competencia) => {
+      const slug = clientSlug?.trim();
+      if (!slug) {
+        setMarketingPerformance(null);
+        return { ok: false };
+      }
+      try {
+        const params = competencia ? `?competencia=${encodeURIComponent(competencia)}` : "";
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/marketing/performance${params}`,
+          { headers: { ...authHeaders() } }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, message: data.message || "Falha ao carregar performance." };
+        }
+        setMarketingPerformance(data);
+        return { ok: true, data };
+      } catch {
+        return { ok: false, message: "Falha de rede." };
+      }
+    },
+    [clientSlug]
+  );
+
+  useEffect(() => {
+    if (!clientSlug?.trim() || clientNotFound || workspaceForbidden) {
+      setIntegrationsState(null);
+      return;
+    }
+    loadIntegrations();
+  }, [clientSlug, reloadKey, clientNotFound, workspaceForbidden, loadIntegrations]);
+
+  const dismissIntegrationAlert = useCallback(
+    async (alertId) => {
+      const slug = clientSlug?.trim();
+      if (!slug || !alertId) return { ok: false };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/alerts/dismiss`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ alertId }),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return { ok: false, message: data.message };
+        setIntegrationsState((prev) => ({
+          ...(prev || {}),
+          alerts: data.alerts || [],
+        }));
+        return { ok: true };
+      } catch {
+        return { ok: false, message: "Falha ao dispensar alerta." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const syncMetaPixel = useCallback(
+    async ({ competencia } = {}) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/meta/pixel/sync`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ competencia }),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (data.integrations || data.alerts) {
+            setIntegrationsState((prev) => ({
+              ...(prev || {}),
+              integrations: data.integrations || prev?.integrations,
+              alerts: data.alerts || prev?.alerts,
+            }));
+          }
+          return { ok: false, message: data.message || "Falha ao sincronizar Pixel." };
+        }
+        setIntegrationsState((prev) => ({
+          ...(prev || {}),
+          integrations: data.integrations,
+          alerts: data.alerts || [],
+          pixelSnapshot: data.pixelSnapshot || prev?.pixelSnapshot,
+        }));
+        return { ok: true, competencia: data.competencia };
+      } catch {
+        return { ok: false, message: "Falha de rede ao sincronizar Pixel." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const connectMeta = useCallback(async () => {
+    const slug = clientSlug?.trim();
+    if (!slug) return { ok: false, message: "Cliente não identificado." };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/meta/connect`,
+        { headers: { ...authHeaders() } }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Não foi possível iniciar conexão Meta." };
+      }
+      return { ok: true, authUrl: data.authUrl };
+    } catch {
+      return { ok: false, message: "Falha de rede ao conectar Meta." };
+    }
+  }, [clientSlug]);
+
+  const disconnectMeta = useCallback(async () => {
+    const slug = clientSlug?.trim();
+    if (!slug) return { ok: false, message: "Cliente não identificado." };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/meta/disconnect`,
+        { method: "POST", headers: { ...authHeaders() } }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Falha ao desconectar Meta." };
+      }
+      setIntegrationsState((prev) => ({
+        ...(prev || {}),
+        integrations: data.integrations,
+      }));
+      return { ok: true };
+    } catch {
+      return { ok: false, message: "Falha de rede ao desconectar Meta." };
+    }
+  }, [clientSlug]);
+
+  const fetchMetaAdAccounts = useCallback(async () => {
+    const slug = clientSlug?.trim();
+    if (!slug) return { ok: false, message: "Cliente não identificado." };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/meta/ad-accounts`,
+        { headers: { ...authHeaders() } }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Falha ao listar contas Meta." };
+      }
+      return { ok: true, accounts: data.accounts || [] };
+    } catch {
+      return { ok: false, message: "Falha de rede ao listar contas Meta." };
+    }
+  }, [clientSlug]);
+
+  const saveMetaSettings = useCallback(
+    async (payload) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/meta`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify(payload),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, message: data.message || "Falha ao salvar configurações Meta." };
+        }
+        setIntegrationsState((prev) => ({
+          ...(prev || {}),
+          integrations: data.integrations,
+        }));
+        return { ok: true };
+      } catch {
+        return { ok: false, message: "Falha de rede ao salvar configurações Meta." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const syncMeta = useCallback(
+    async ({ competencia } = {}) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/meta/sync`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ competencia }),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (data.integrations) {
+            setIntegrationsState((prev) => ({
+              ...(prev || {}),
+              integrations: data.integrations,
+            }));
+          }
+          return { ok: false, message: data.message || "Falha ao sincronizar Meta." };
+        }
+        setKpisMarketing(Array.isArray(data.kpisMarketing) ? data.kpisMarketing : []);
+        setIntegrationsState((prev) => ({
+          ...(prev || {}),
+          integrations: data.integrations,
+          alerts: data.alerts || prev?.alerts || [],
+          pixelSnapshot: data.pixelSnapshot || prev?.pixelSnapshot,
+        }));
+        setLastUpdatedAt(new Date().toISOString());
+        return { ok: true, competencia: data.competencia };
+      } catch {
+        return { ok: false, message: "Falha de rede ao sincronizar Meta." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const connectGoogle = useCallback(async () => {
+    const slug = clientSlug?.trim();
+    if (!slug) return { ok: false, message: "Cliente não identificado." };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/google/connect`,
+        { headers: { ...authHeaders() } }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Não foi possível iniciar conexão Google." };
+      }
+      return { ok: true, authUrl: data.authUrl };
+    } catch {
+      return { ok: false, message: "Falha de rede ao conectar Google." };
+    }
+  }, [clientSlug]);
+
+  const disconnectGoogle = useCallback(async () => {
+    const slug = clientSlug?.trim();
+    if (!slug) return { ok: false, message: "Cliente não identificado." };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/google/disconnect`,
+        { method: "POST", headers: { ...authHeaders() } }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Falha ao desconectar Google." };
+      }
+      setIntegrationsState((prev) => ({
+        ...(prev || {}),
+        integrations: data.integrations,
+      }));
+      return { ok: true };
+    } catch {
+      return { ok: false, message: "Falha de rede ao desconectar Google." };
+    }
+  }, [clientSlug]);
+
+  const fetchGoogleCustomers = useCallback(async () => {
+    const slug = clientSlug?.trim();
+    if (!slug) return { ok: false, message: "Cliente não identificado." };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/google/customers`,
+        { headers: { ...authHeaders() } }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Falha ao listar contas Google." };
+      }
+      return { ok: true, customers: data.customers || [] };
+    } catch {
+      return { ok: false, message: "Falha de rede ao listar contas Google." };
+    }
+  }, [clientSlug]);
+
+  const saveGoogleSettings = useCallback(
+    async (payload) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/google`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify(payload),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, message: data.message || "Falha ao salvar configurações Google." };
+        }
+        setIntegrationsState((prev) => ({
+          ...(prev || {}),
+          integrations: data.integrations,
+        }));
+        return { ok: true };
+      } catch {
+        return { ok: false, message: "Falha de rede ao salvar configurações Google." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const syncGoogle = useCallback(
+    async ({ competencia } = {}) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/google/sync`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ competencia }),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (data.integrations) {
+            setIntegrationsState((prev) => ({
+              ...(prev || {}),
+              integrations: data.integrations,
+            }));
+          }
+          return { ok: false, message: data.message || "Falha ao sincronizar Google." };
+        }
+        setKpisMarketing(Array.isArray(data.kpisMarketing) ? data.kpisMarketing : []);
+        setIntegrationsState((prev) => ({
+          ...(prev || {}),
+          integrations: data.integrations,
+        }));
+        setLastUpdatedAt(new Date().toISOString());
+        return { ok: true, competencia: data.competencia };
+      } catch {
+        return { ok: false, message: "Falha de rede ao sincronizar Google." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const saveNotificationSettings = useCallback(
+    async (payload) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/notifications`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify(payload),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, message: data.message || "Falha ao salvar notificações." };
+        }
+        setIntegrationsState((prev) => ({
+          ...(prev || {}),
+          notifications: data.notifications,
+          notificationCapabilities: data.notificationCapabilities,
+        }));
+        return { ok: true };
+      } catch {
+        return { ok: false, message: "Falha de rede ao salvar notificações." };
+      }
+    },
+    [clientSlug]
+  );
+
+  const sendTestNotification = useCallback(async () => {
+    const slug = clientSlug?.trim();
+    if (!slug) return { ok: false, message: "Cliente não identificado." };
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/notifications/test`,
+        { method: "POST", headers: { ...authHeaders() } }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { ok: false, message: data.message || "Falha ao enviar teste." };
+      }
+      setIntegrationsState((prev) => ({
+        ...(prev || {}),
+        notifications: data.notifications || prev?.notifications,
+      }));
+      return { ok: true, message: data.message };
+    } catch {
+      return { ok: false, message: "Falha de rede ao enviar teste." };
+    }
+  }, [clientSlug]);
+
+  const savePlatformIntegrationConfig = useCallback(
+    async (payload) => {
+      const slug = clientSlug?.trim();
+      if (!slug) return { ok: false, message: "Cliente não identificado." };
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/clients/slug/${encodeURIComponent(slug)}/integrations/platform-config`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify(payload),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, message: data.message || "Falha ao salvar configuração." };
+        }
+        setIntegrationsState((prev) => ({
+          ...(prev || {}),
+          platform: data.platform,
+          configured: data.configured || prev?.configured,
+          notificationCapabilities: data.notificationCapabilities || prev?.notificationCapabilities,
+        }));
+        return { ok: true };
+      } catch {
+        return { ok: false, message: "Falha de rede ao salvar configuração." };
+      }
+    },
+    [clientSlug]
+  );
+
   return (
     <ClientDataContext.Provider
       value={{
@@ -533,6 +991,27 @@ export function ClientDataProvider({ children }) {
         updateKpiMarketing,
         deleteKpiMarketing,
         updateClientConfig,
+        integrationsState,
+        integrationAlerts,
+        pixelSnapshot,
+        loadIntegrations,
+        dismissIntegrationAlert,
+        connectMeta,
+        disconnectMeta,
+        fetchMetaAdAccounts,
+        saveMetaSettings,
+        syncMeta,
+        syncMetaPixel,
+        connectGoogle,
+        disconnectGoogle,
+        fetchGoogleCustomers,
+        saveGoogleSettings,
+        syncGoogle,
+        saveNotificationSettings,
+        sendTestNotification,
+        savePlatformIntegrationConfig,
+        marketingPerformance,
+        loadMarketingPerformance,
         ...dashboardData,
       }}
     >

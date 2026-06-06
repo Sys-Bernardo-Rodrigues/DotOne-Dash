@@ -1,6 +1,6 @@
-# Deploy em Produção (VPS)
+# Deploy em Produção (VPS/Linux)
 
-Guia de deploy do sistema **Cronograma Flesak** em servidor Linux, com:
+Guia de deploy do sistema **Cronograma Flesak** em servidor Linux tradicional (sem painel ICP), com:
 
 - frontend (Vite build servido por Nginx)
 - backend Node.js (PM2)
@@ -53,8 +53,8 @@ sudo usermod -aG docker $USER
 ```bash
 mkdir -p ~/apps
 cd ~/apps
-git clone <URL_DO_REPOSITORIO> cronograma-flesak
-cd cronograma-flesak
+git clone <URL_DO_REPOSITORIO> mydotgrowth
+cd mydotgrowth
 ```
 
 Instalar dependências:
@@ -75,10 +75,10 @@ cp server/.env.example server/.env
 
 ### `.env` (frontend)
 
-Use sua URL final da API (atrás do Nginx):
+Recomendado para produção atrás do mesmo domínio/proxy:
 
 ```env
-VITE_API_URL=https://app.seudominio.com/api
+VITE_API_URL=/api
 VITE_HTTPS=false
 VITE_SSL_CERT_FILE=
 VITE_SSL_KEY_FILE=
@@ -94,7 +94,7 @@ CLIENT_ORIGIN=https://app.seudominio.com
 ENABLE_HTTPS=false
 SSL_CERT_FILE=
 SSL_KEY_FILE=
-MONGODB_URI=mongodb://admin:SENHA_FORTE@localhost:27017/mydotgrowth?authSource=admin
+MONGODB_URI=mongodb://USUARIO_APP:SENHA_FORTE@127.0.0.1:27017/mydotgrowth?authSource=admin
 JWT_SECRET=GERAR_UM_SEGREDO_MUITO_FORTE_COM_24+_CARACTERES
 JWT_EXPIRES_IN=7d
 ADMIN_EMAIL=admin@seudominio.com
@@ -125,7 +125,7 @@ Isso gera a pasta `dist/`.
 ## 7) Subir backend com PM2
 
 ```bash
-pm2 start server/src/index.js --name cronograma-api
+pm2 start server/src/index.js --name mydotgrowth-api
 pm2 save
 pm2 startup
 ```
@@ -133,7 +133,7 @@ pm2 startup
 Ver logs:
 
 ```bash
-pm2 logs cronograma-api
+pm2 logs mydotgrowth-api
 ```
 
 ## 8) Configurar Nginx (frontend + proxy API)
@@ -141,7 +141,7 @@ pm2 logs cronograma-api
 Crie o arquivo:
 
 ```bash
-sudo nano /etc/nginx/sites-available/cronograma-flesak
+sudo nano /etc/nginx/sites-available/mydotgrowth
 ```
 
 Conteúdo:
@@ -149,9 +149,9 @@ Conteúdo:
 ```nginx
 server {
     listen 80;
-    server_name app.seudominio.com;
+    server_name mydotgrowth.zroot.com.br;
 
-    root /home/SEU_USUARIO/apps/cronograma-flesak/dist;
+    root /var/www/mydotgrowth;
     index index.html;
 
     location / {
@@ -172,9 +172,9 @@ server {
 Ativar site:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/cronograma-flesak /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/mydotgrowth /etc/nginx/sites-enabled/mydotgrowth
 sudo nginx -t
-sudo systemctl reload nginx
+sudo systemctl restart nginx
 ```
 
 ## 9) Habilitar SSL (Let's Encrypt)
@@ -203,20 +203,21 @@ sudo certbot renew --dry-run
 ## 11) Atualização de versão (deploy contínuo manual)
 
 ```bash
-cd ~/apps/cronograma-flesak
+cd ~/apps/mydotgrowth
 git pull
 npm install
 npm --prefix server install
 npm run build
-pm2 restart cronograma-api
-sudo systemctl reload nginx
+sudo rsync -av --delete dist/ /var/www/mydotgrowth/
+pm2 restart mydotgrowth-api --update-env
+sudo systemctl restart nginx
 ```
 
 ## 12) Comandos úteis de operação
 
 - Status da API: `pm2 status`
-- Reiniciar API: `pm2 restart cronograma-api`
-- Ver logs API: `pm2 logs cronograma-api`
+- Reiniciar API: `pm2 restart mydotgrowth-api --update-env`
+- Ver logs API: `pm2 logs mydotgrowth-api`
 - Status Nginx: `sudo systemctl status nginx`
 - Recarregar Nginx: `sudo systemctl reload nginx`
 - Containers Mongo: `docker compose ps`
@@ -225,12 +226,23 @@ sudo systemctl reload nginx
 
 - `502 Bad Gateway` no Nginx:
   - API não subiu ou porta diferente de `4000`
-  - validar `pm2 logs cronograma-api`
+  - validar `pm2 logs mydotgrowth-api`
+- Front mostra "Falha de rede":
+  - usar `VITE_API_URL=/api` e gerar build novamente
+  - validar `curl -i http://127.0.0.1:4000/api/health`
+  - validar `curl -i http://127.0.0.1/api/health` (quando usar 80) ou `:8080/api/health` no teste local
 - Front abre branco:
   - faltou `npm run build` após alteração de código
   - conferir se `dist/` está atualizado
 - CORS bloqueando:
   - revisar `CLIENT_ORIGIN` no `server/.env`
+- Nginx não sobe com `bind() ... :80 failed (98: Address already in use)`:
+  - outra aplicação já ocupa a porta 80
+  - verificar com `sudo ss -ltnp | grep ':80'`
+  - não rodar dois webservers na mesma porta
+- Nginx retorna 500 ao servir frontend:
+  - evitar servir arquivos de `/root/...`
+  - mover `dist` para `/var/www/mydotgrowth` e ajustar permissões
 - Falha no login em produção:
   - verificar variáveis obrigatórias e força de segredos
 

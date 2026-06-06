@@ -4,7 +4,7 @@ Guia de publicação do **Cronograma Flesak** usando o **Painel de Controle ICP 
 
 Este documento foca no cenário comum de hospedagem com:
 
-- aplicação Node.js (backend)
+- aplicação Node.js (backend em `127.0.0.1:4000`)
 - build estático do frontend (`dist`)
 - domínio próprio com SSL
 - banco MongoDB externo (Atlas ou VPS dedicada)
@@ -62,10 +62,10 @@ Isso gera o frontend em `dist/`.
 
 ### 4.1 Frontend (`.env` local antes do build)
 
-> O frontend precisa apontar para a URL final da API.
+> No ICP, prefira URL relativa para evitar erro de CORS e facilitar proxy reverso.
 
 ```env
-VITE_API_URL=https://app.seudominio.com/api
+VITE_API_URL=/api
 VITE_HTTPS=false
 VITE_SSL_CERT_FILE=
 VITE_SSL_KEY_FILE=
@@ -143,7 +143,7 @@ No ICP, faça o domínio apontar para o frontend e roteie `/api` para o Node.
 Regra esperada:
 
 - `https://app.seudominio.com/*` -> arquivos estáticos (`dist`)
-- `https://app.seudominio.com/api/*` -> backend Node (`localhost:4000`)
+- `https://app.seudominio.com/api/*` -> backend Node (`127.0.0.1:4000`)
 
 Se o painel pedir regra manual de rewrite/proxy, use o equivalente a:
 
@@ -173,6 +173,8 @@ Após ativação, valide:
 - [ ] login carrega sem erro
 - [ ] rotas internas funcionam (`/:clientSlug/...`)
 - [ ] API responde em `/api/health`
+- [ ] `curl -i http://127.0.0.1:4000/api/health` retorna `200`
+- [ ] `curl -i http://127.0.0.1:8080/api/health` retorna `200` (quando em teste local com Nginx)
 - [ ] sem erro de CORS no navegador
 - [ ] SSL ativo e válido
 - [ ] criação/edição de dados funcionando
@@ -202,7 +204,7 @@ Após ativação, valide:
 
 ### Front abre, mas login falha
 
-- `VITE_API_URL` incorreta no build
+- `VITE_API_URL` incorreta no build (use `/api`)
 - `CLIENT_ORIGIN` diferente do domínio final
 - CORS bloqueando origem
 
@@ -211,6 +213,20 @@ Após ativação, valide:
 - faltou fallback SPA para `index.html`
 - build antigo em cache
 - arquivo `dist` incompleto
+
+### Nginx não inicia com `bind() ... 0.0.0.0:80 failed (98: Address already in use)`
+
+- no ICP, normalmente a porta 80 já está em uso por `openresty`
+- valide com `sudo ss -ltnp | grep ':80'`
+- não tente iniciar outro webserver na mesma porta
+- se for só teste técnico, use Nginx em `8080`
+
+### Nginx inicia, mas retorna `500 Internal Server Error`
+
+- geralmente permissões/caminho do `root` incorretos
+- evite servir frontend de `/root/...`
+- use caminho como `/var/www/mydotgrowth`
+- ajuste permissões para leitura do `www-data`
 
 ### API não inicia em produção
 
@@ -237,5 +253,14 @@ Interfaces do Integrator Host podem variar por plano/versão. Se algum nome de m
 - Domain / SSL
 - Reverse Proxy / Rewrite
 - Logs
+
+## Nota prática do ambiente ICP
+
+- Em muitos servidores ICP, o serviço padrão é `openresty` na porta `80`.
+- Nesse cenário:
+  - mantenha o serviço padrão do painel para domínio/SSL
+  - mantenha sua API Node no PM2 (`127.0.0.1:4000`)
+  - use proxy `/api` apontando para a API
+  - use `VITE_API_URL=/api` no build do frontend
 
 Se quiser, eu também posso criar uma versão 100% “copiar e colar” com os nomes exatos dos campos do seu painel (com base em prints).

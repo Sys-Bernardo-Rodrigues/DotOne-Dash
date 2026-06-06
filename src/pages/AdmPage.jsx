@@ -76,6 +76,27 @@ const CLIENT_FORM_INITIAL = {
   status: "Ativo",
 };
 
+const SECOES_ADM = {
+  usuarios: {
+    badge: "Utilizadores",
+    titulo: "Gestão de",
+    tituloEm: "contas",
+    descricao: "Crie contas, perfis de acesso e associe clientes a cada utilizador.",
+  },
+  clientes: {
+    badge: "Clientes",
+    titulo: "Carteira de",
+    tituloEm: "workspaces",
+    descricao: "Registe organizações e abra o dashboard de cada slug.",
+  },
+  configuracoes: {
+    badge: "Configurações",
+    titulo: "Parâmetros da",
+    tituloEm: "plataforma",
+    descricao: "Preferências globais do ambiente My Dot Growth.",
+  },
+};
+
 function slugClienteDashboard(client) {
   const s = String(client?.slug || "").trim();
   if (s) return s;
@@ -377,164 +398,119 @@ export default function AdmPage({ defaultSection = "usuarios" }) {
     await loadClients();
   }
 
+  const secaoInfo = SECOES_ADM[secaoAtiva] || SECOES_ADM.usuarios;
+
   return (
-    <>
-      <section className="adm-layout">
-        <aside className="sidebar adm-sidebar">
-          <div className="brand-block">
-            <div className="brand-mark">
-              <img src="/brand-icon-blue.png" alt="My Dot Growth" className="brand-mark-image" />
-            </div>
+    <div className="landing adm-panel">
+      <div className="landing__mesh" aria-hidden="true" />
+
+      <header className="landing-header">
+        <div className="landing-header__inner">
+          <Link to="/adm/home" className="landing-brand">
+            <img src="/brand-icon-blue.png" alt="" />
             <div>
-              <div className="brand">My Dot Growth</div>
-              <div className="brand-subtitle">
-                {layoutMode === "full"
-                  ? "Painel administrativo"
-                  : "Escolha o cliente para continuar"}
-              </div>
+              <strong>My Dot Growth</strong>
+              <span>Growth Command Center</span>
             </div>
-          </div>
-
-          <nav className="nav-links adm-nav-links">
-            <button
-              className={`nav-link adm-nav-btn${secaoAtiva === "home" ? " active" : ""}`}
-              onClick={() => setSecaoAtiva("home")}
-            >
-              <span className="nav-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M12 3l9 7h-2v10h-5v-6H10v6H5V10H3l9-7z" />
-                </svg>
-              </span>
-              <span>Home</span>
-            </button>
-            {layoutMode === "full" ? (
-              <>
-                <button
-                  className={`nav-link adm-nav-btn${secaoAtiva === "usuarios" ? " active" : ""}`}
-                  onClick={() => setSecaoAtiva("usuarios")}
-                >
-                  <span className="nav-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z" />
-                    </svg>
-                  </span>
-                  <span>Utilizadores</span>
-                </button>
-                <button
-                  className={`nav-link adm-nav-btn${secaoAtiva === "clientes" ? " active" : ""}`}
-                  onClick={() => setSecaoAtiva("clientes")}
-                >
-                  <span className="nav-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M3 21h18v-2h-1V3H4v16H3v2zm3-2V5h12v14H6zm2-2h2v-2H8v2zm0-4h2v-2H8v2zm0-4h2V7H8v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2z" />
-                    </svg>
-                  </span>
-                  <span>Clientes</span>
-                </button>
-                <button
-                  className={`nav-link adm-nav-btn${
-                    secaoAtiva === "configuracoes" ? " active" : ""
-                  }`}
-                  onClick={() => setSecaoAtiva("configuracoes")}
-                >
-                  <span className="nav-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.14 7.14 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.14 7.14 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0-.05.94 7.49 7.49 0 0 0 .05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.39 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.13-.55 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z" />
-                    </svg>
-                  </span>
-                  <span>Configuracoes</span>
-                </button>
-              </>
-            ) : null}
-          </nav>
-
-          <div className="mission-card">
-            <h3>{layoutMode === "full" ? "Administracao" : "Os seus clientes"}</h3>
-            <p>
-              {layoutMode === "full"
-                ? "Gerencie utilizadores, clientes e parâmetros da plataforma."
-                : "Aceda ao dashboard do cliente a partir da lista ao lado. O menu completo de administracao nao esta disponivel para o seu perfil."}
-            </p>
-          </div>
-
-          <div className="sidebar-exit-wrap">
+          </Link>
+          <div className="adm-panel-header__actions">
+            <Link to="/adm/home" className="landing-btn landing-btn--ghost adm-panel-header__link">
+              Workspaces
+            </Link>
             <Link
               to="/login"
-              className="nav-link adm-nav-btn nav-link-exit"
+              className="landing-header__btn adm-panel-header__exit"
               onClick={() => clearAdminToken()}
             >
-              <span className="nav-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                  <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
-                </svg>
-              </span>
-              <span>Sair</span>
+              Sair
             </Link>
           </div>
-        </aside>
+        </div>
+      </header>
 
-        <div className="adm-content">
+      <main className="adm-panel-main">
+        <div className="adm-panel-layout">
+          <aside className="adm-panel-aside">
+            <div className="landing-hero__badge">
+              <span className="landing-hero__pulse" />
+              {secaoInfo.badge}
+            </div>
+            <h1>
+              {secaoInfo.titulo}{" "}
+              <em>{secaoInfo.tituloEm}</em>
+            </h1>
+            <p>{secaoInfo.descricao}</p>
+
+            <nav className="adm-panel-nav" aria-label="Secções do painel">
+              <button
+                type="button"
+                className={`adm-panel-nav__item${secaoAtiva === "usuarios" ? " is-active" : ""}`}
+                onClick={() => setSecaoAtiva("usuarios")}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z" />
+                </svg>
+                Utilizadores
+              </button>
+              <button
+                type="button"
+                className={`adm-panel-nav__item${secaoAtiva === "clientes" ? " is-active" : ""}`}
+                onClick={() => setSecaoAtiva("clientes")}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 21h18v-2h-1V3H4v16H3v2zm3-2V5h12v14H6zm2-2h2v-2H8v2zm0-4h2v-2H8v2zm0-4h2V7H8v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2z" />
+                </svg>
+                Clientes
+              </button>
+              <button
+                type="button"
+                className={`adm-panel-nav__item${secaoAtiva === "configuracoes" ? " is-active" : ""}`}
+                onClick={() => setSecaoAtiva("configuracoes")}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.14 7.14 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.14 7.14 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0-.05.94 7.49 7.49 0 0 0 .05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.39 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.13-.55 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z" />
+                </svg>
+                Configurações
+              </button>
+            </nav>
+          </aside>
+
+          <div className="adm-panel-content">
           {apiError ? (
-            <section className="card">
-              <p>{apiError}</p>
-            </section>
-          ) : null}
-
-          {secaoAtiva === "home" ? (
-            <section className="card">
-              <div className="section-title-row">
-                <h2>{layoutMode === "full" ? "Clientes" : "Os meus clientes"}</h2>
-                <span>
-                  {layoutMode === "full"
-                    ? `${clients.length} cadastrados`
-                    : `${accessibleClients.length} disponíveis`}
-                </span>
-              </div>
-              <ul className="adm-clients-list">
-                {(layoutMode === "full" ? clients : accessibleClients).map((client) => {
-                  const key = client.id || client.slug || client.nome;
-                  const slug = client.slug || slugify(client.nome);
-                  return (
-                    <li key={key}>
-                      <div>
-                        <strong>{client.nome}</strong>
-                        <small>
-                          {client.segmento} • {client.responsavel || "Sem responsável"}
-                        </small>
-                      </div>
-                      <Link to={`/${slug}`} className="btn-secondary adm-access-btn">
-                        Acessar
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+            <div className="adm-panel-alert" role="alert">
+              {apiError}
+            </div>
           ) : null}
 
           {layoutMode === "full" && secaoAtiva === "usuarios" ? (
             <>
-              <section className="metrics-grid metrics-grid-3">
-                <article className="metric-card">
-                  <h3>Utilizadores</h3>
-                  <strong>{stats.totalUsers}</strong>
-                  <p>
-                    {stats.usersActive} ativos · {stats.totalUsers - stats.usersActive} inativos
-                  </p>
-                </article>
-                <article className="metric-card">
-                  <h3>Perfis</h3>
-                  <strong>{PERFIS_ACESSO.length}</strong>
-                  <p>Só administradores gerem contas neste painel.</p>
-                </article>
-                <article className="metric-card">
-                  <h3>Segurança</h3>
-                  <strong>Senha obrigatória</strong>
-                  <p>Cada conta precisa de senha para entrar em /login.</p>
-                </article>
+              <section className="adm-panel-stats">
+                <div className="landing-stat landing-stat--violet">
+                  <dt>Utilizadores</dt>
+                  <dd>
+                    {stats.totalUsers}
+                    <span className="adm-panel-stat-note">
+                      {stats.usersActive} ativos · {stats.totalUsers - stats.usersActive} inativos
+                    </span>
+                  </dd>
+                </div>
+                <div className="landing-stat landing-stat--cyan">
+                  <dt>Perfis</dt>
+                  <dd>
+                    {PERFIS_ACESSO.length}
+                    <span className="adm-panel-stat-note">Só administradores gerem contas neste painel.</span>
+                  </dd>
+                </div>
+                <div className="landing-stat landing-stat--amber">
+                  <dt>Segurança</dt>
+                  <dd>
+                    Senha obrigatória
+                    <span className="adm-panel-stat-note">Cada conta precisa de senha para entrar em /login.</span>
+                  </dd>
+                </div>
               </section>
 
-              <section className="card mt-12 adm-users-card">
+              <section className="adm-panel-card adm-users-card">
                 <div className="section-title-row">
                   <div>
                     <h2>Utilizadores</h2>
@@ -635,7 +611,7 @@ export default function AdmPage({ defaultSection = "usuarios" }) {
                 </div>
               </section>
 
-              <section className="card mt-12 adm-perfis-info">
+              <section className="adm-panel-card adm-perfis-info">
                 <details className="adm-perfis-details">
                   <summary className="adm-perfis-summary">
                     Perfis de acesso — referência para o cadastro
@@ -656,30 +632,34 @@ export default function AdmPage({ defaultSection = "usuarios" }) {
 
           {layoutMode === "full" && secaoAtiva === "clientes" ? (
             <>
-              <section className="metrics-grid metrics-grid-3">
-                <article className="metric-card">
-                  <h3>Carteira</h3>
-                  <strong>{stats.totalClients}</strong>
-                  <p>
-                    {stats.clientsActive} ativos · {stats.totalClients - stats.clientsActive}{" "}
-                    inativos
-                  </p>
-                </article>
-                <article className="metric-card">
-                  <h3>Segmentos</h3>
-                  <strong>{new Set(clients.map((item) => item.segmento)).size}</strong>
-                  <p>Etiquetas de negócio para relatórios e filtros.</p>
-                </article>
-                <article className="metric-card">
-                  <h3>Contacto</h3>
-                  <strong>
+              <section className="adm-panel-stats">
+                <div className="landing-stat landing-stat--violet">
+                  <dt>Carteira</dt>
+                  <dd>
+                    {stats.totalClients}
+                    <span className="adm-panel-stat-note">
+                      {stats.clientsActive} ativos · {stats.totalClients - stats.clientsActive}{" "}
+                      inativos
+                    </span>
+                  </dd>
+                </div>
+                <div className="landing-stat landing-stat--cyan">
+                  <dt>Segmentos</dt>
+                  <dd>
+                    {new Set(clients.map((item) => item.segmento)).size}
+                    <span className="adm-panel-stat-note">Etiquetas de negócio para relatórios e filtros.</span>
+                  </dd>
+                </div>
+                <div className="landing-stat landing-stat--emerald">
+                  <dt>Contacto</dt>
+                  <dd>
                     {clients.filter((c) => (c.responsavel || "").trim()).length}
-                  </strong>
-                  <p>Clientes com responsável principal preenchido.</p>
-                </article>
+                    <span className="adm-panel-stat-note">Clientes com responsável principal preenchido.</span>
+                  </dd>
+                </div>
               </section>
 
-              <section className="card mt-12 adm-users-card">
+              <section className="adm-panel-card adm-users-card">
                 <div className="section-title-row">
                   <div>
                     <h2>Clientes</h2>
@@ -783,7 +763,7 @@ export default function AdmPage({ defaultSection = "usuarios" }) {
           ) : null}
 
           {layoutMode === "full" && secaoAtiva === "configuracoes" ? (
-            <section className="card">
+            <section className="adm-panel-card">
               <h2>Configuracoes da Plataforma</h2>
               <form className="adm-form">
                 <input
@@ -812,8 +792,9 @@ export default function AdmPage({ defaultSection = "usuarios" }) {
               </form>
             </section>
           ) : null}
+          </div>
         </div>
-      </section>
+      </main>
 
       {showUserModal ? (
         <div
@@ -1188,6 +1169,6 @@ export default function AdmPage({ defaultSection = "usuarios" }) {
           </section>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

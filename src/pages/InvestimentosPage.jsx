@@ -1,5 +1,14 @@
 import { useMemo, useState } from "react";
-import PageHeader from "../components/PageHeader";
+import { createPortal } from "react-dom";
+import {
+  Pencil,
+  Plus,
+  Repeat,
+  Search,
+  Trash2,
+  Wallet,
+  X,
+} from "lucide-react";
 import { useClientData } from "../context/ClientDataContext";
 
 function moneyFormat(value) {
@@ -28,7 +37,8 @@ function buildInitialForm() {
 }
 
 export default function InvestimentosPage() {
-  const { investimentos, addInvestimento, updateInvestimento, deleteInvestimento } = useClientData();
+  const { investimentos, addInvestimento, updateInvestimento, deleteInvestimento } =
+    useClientData();
   const [modalAberto, setModalAberto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState("");
@@ -37,13 +47,24 @@ export default function InvestimentosPage() {
   const [busca, setBusca] = useState("");
   const [filtroRepete, setFiltroRepete] = useState("todos");
   const [filtroFreq, setFiltroFreq] = useState("todas");
+
   const canaisCadastrados = useMemo(
     () =>
       [...new Set(investimentos.map((i) => String(i?.canal || "").trim()).filter(Boolean))].sort(
-        (a, b) => a.localeCompare(b, "pt", { sensitivity: "base" })
+        (a, b) => a.localeCompare(b, "pt", { sensitivity: "base" }),
       ),
-    [investimentos]
+    [investimentos],
   );
+
+  const resumo = useMemo(() => {
+    const total = investimentos.length;
+    const valorTotal = investimentos.reduce((acc, i) => acc + Number(i.valor || 0), 0);
+    const recorrentes = investimentos.filter((i) => i.repete).length;
+    const canais = new Set(
+      investimentos.map((i) => String(i?.canal || "").trim()).filter(Boolean),
+    ).size;
+    return { total, valorTotal, recorrentes, canais };
+  }, [investimentos]);
 
   const itens = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -140,316 +161,340 @@ export default function InvestimentosPage() {
   }
 
   return (
-    <>
-      <PageHeader
-        title="Investimentos"
-        subtitle="Registo e controlo de investimentos do cliente"
-        action={
-          <div className="header-actions">
-            <button type="button" className="btn-secondary" onClick={openCreate}>
-              Novo investimento
-            </button>
-          </div>
-        }
-      />
+    <div className="inv">
+      <header className="inv-hero">
+        <div className="inv-hero__copy">
+          <span className="inv-hero__eyebrow">Marketing · Financeiro</span>
+          <h1>Investimentos</h1>
+          <p>Registo e controlo de investimentos do cliente</p>
+        </div>
 
-      <section className="card">
-        <div className="table-filters">
+        <div className="inv-hero__side">
+          <div className="inv-hero__stats">
+            <div className="inv-stat">
+              <span>Total</span>
+              <strong>{resumo.total}</strong>
+            </div>
+            <div className="inv-stat inv-stat--money">
+              <span>Valor</span>
+              <strong>{moneyFormat(resumo.valorTotal)}</strong>
+            </div>
+            <div className="inv-stat inv-stat--active">
+              <span>Recorrentes</span>
+              <strong>{resumo.recorrentes}</strong>
+            </div>
+            <div className="inv-stat">
+              <span>Canais</span>
+              <strong>{resumo.canais}</strong>
+            </div>
+          </div>
+          <button type="button" className="inv-hero__cta" onClick={openCreate}>
+            <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
+            Novo investimento
+          </button>
+        </div>
+      </header>
+
+      <section className="inv-toolbar" aria-label="Filtros">
+        <label className="inv-toolbar__search">
+          <Search size={16} strokeWidth={2} aria-hidden="true" />
           <input
-            type="text"
-            className="filter-input"
-            placeholder="Buscar por ID ou nome do investimento"
+            type="search"
+            placeholder="Buscar por ID, nome ou canal…"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select
-            className="filter-select"
-            value={filtroRepete}
-            onChange={(e) => setFiltroRepete(e.target.value)}
-          >
-            <option value="todos">Recorrência: Todas</option>
-            <option value="sim">Apenas recorrentes</option>
-            <option value="nao">Apenas pontuais</option>
-          </select>
-          <select
-            className="filter-select"
-            value={filtroFreq}
-            onChange={(e) => setFiltroFreq(e.target.value)}
-          >
-            <option value="todas">Frequência: Todas</option>
-            <option value="mensal">Mensal</option>
-            <option value="semanal">Semanal</option>
-          </select>
-        </div>
+        </label>
 
-        <div className="table-scroll">
-          <table className="timeline-table investimento-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Nome do investimento</th>
-                <th>Canal</th>
-                <th>Valor</th>
-                <th>Data</th>
-                <th>Repete</th>
-                <th>Frequência</th>
-                <th>Início</th>
-                <th>Fim</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {itens.length ? (
-                itens.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.id}</td>
-                    <td>
-                      <strong>{item.nome}</strong>
-                      <div className="table-subline">Lançamento: {dateFormat(item.data)}</div>
-                    </td>
-                    <td>{item.canal || "—"}</td>
-                    <td>{moneyFormat(item.valor)}</td>
-                    <td>{dateFormat(item.data)}</td>
-                    <td>
-                      <span className={`chip ${item.repete ? "andamento" : "pendente"}`}>
-                        {item.repete ? "Recorrente" : "Pontual"}
-                      </span>
-                    </td>
-                    <td>
-                      {item.repete ? (
-                        <span className={`chip ${item.frequencia === "semanal" ? "ok" : "andamento"}`}>
-                          {item.frequencia === "semanal" ? "Semanal" : "Mensal"}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>{item.repete ? dateFormat(item.dataInicio) : "—"}</td>
-                    <td>{item.repete ? dateFormat(item.dataFim) : "—"}</td>
-                    <td>
-                      <div className="row-actions">
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          title="Editar investimento"
-                          aria-label="Editar investimento"
-                          onClick={() => openEdit(item)}
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58zM20.71 7.04a1.003 1.003 0 0 0 0-1.42L18.37 3.29a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.83z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-btn danger"
-                          title="Excluir investimento"
-                          aria-label="Excluir investimento"
-                          onClick={() => handleDelete(item)}
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M6 7h12v2H6V7zm2 3h8l-.7 10H8.7L8 10zm3-6h2l1 1h4v2H6V5h4l1-1z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={10}>Nenhum investimento cadastrado.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="table-count">Mostrando {itens.length} de {investimentos.length} investimentos</div>
+        <select value={filtroRepete} onChange={(e) => setFiltroRepete(e.target.value)}>
+          <option value="todos">Todas recorrências</option>
+          <option value="sim">Apenas recorrentes</option>
+          <option value="nao">Apenas pontuais</option>
+        </select>
+
+        <select value={filtroFreq} onChange={(e) => setFiltroFreq(e.target.value)}>
+          <option value="todas">Todas frequências</option>
+          <option value="mensal">Mensal</option>
+          <option value="semanal">Semanal</option>
+        </select>
       </section>
 
-      {modalAberto ? (
-        <div
-          className="adm-modal-backdrop plano-modal-backdrop"
-          role="presentation"
-          onClick={() => !saving && setModalAberto(false)}
-        >
-          <section
-            className="plano-acao-modal investimento-modal card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="investimento-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="plano-modal-header-pro">
-              <div className="plano-modal-header-brand" aria-hidden="true">
-                <svg viewBox="0 0 24 24" className="plano-modal-header-icon-svg">
-                  <path d="M11 2h2v20h-2zM4 13h2v9H4zm14-8h2v17h-2zM7 10h2v12H7zm7 5h2v7h-2z" />
-                </svg>
-              </div>
-              <div className="plano-modal-header-copy">
-                <p className="plano-modal-kicker">Financeiro</p>
-                <h2 id="investimento-modal-title">
-                  {editingId ? "Editar investimento" : "Novo investimento"}
-                </h2>
-              </div>
-              <button
-                type="button"
-                className="plano-modal-close"
-                onClick={() => setModalAberto(false)}
-                disabled={saving}
-                aria-label="Fechar modal"
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-                  />
-                </svg>
-              </button>
-            </header>
-
-            <p className="plano-modal-lead-pro">
-              Registre investimentos pontuais ou recorrentes, com calendário e frequência para controlo financeiro.
-            </p>
-
-            <form className="plano-5w2h-form" onSubmit={handleSubmit}>
-              <section className="plano-modal-section" aria-labelledby="investimento-sec-dados">
-                <h3 id="investimento-sec-dados" className="plano-modal-section-title">
-                  Dados do investimento
-                </h3>
-                <div className="plano-modal-section-grid plano-modal-duo">
-                  <label className="plano-field plano-field-span-2">
-                    <span className="plano-field-label">Nome do investimento</span>
-                    <input
-                      type="text"
-                      className="filter-input plano-input-pro"
-                      value={form.nome}
-                      onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label className="plano-field">
-                    <span className="plano-field-label">Canal</span>
-                    <input
-                      type="text"
-                      className="filter-input plano-input-pro"
-                      list="investimento-canais-sugestoes"
-                      placeholder="Ex.: Google Ads, Meta Ads, LinkedIn, Influencer"
-                      value={form.canal}
-                      onChange={(e) => setForm((p) => ({ ...p, canal: e.target.value }))}
-                    />
-                    {canaisCadastrados.length ? (
-                      <datalist id="investimento-canais-sugestoes">
-                        {canaisCadastrados.map((canal) => (
-                          <option key={canal} value={canal} />
-                        ))}
-                      </datalist>
-                    ) : null}
-                  </label>
-                  <label className="plano-field">
-                    <span className="plano-field-label">Valor</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="filter-input plano-input-pro"
-                      value={form.valor}
-                      onChange={(e) => setForm((p) => ({ ...p, valor: e.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label className="plano-field">
-                    <span className="plano-field-label">Data</span>
-                    <input
-                      type="date"
-                      className="filter-input plano-input-pro"
-                      value={form.data}
-                      onChange={(e) => setForm((p) => ({ ...p, data: e.target.value }))}
-                      required
-                    />
-                  </label>
-                </div>
-              </section>
-
-              <section className="plano-modal-section" aria-labelledby="investimento-sec-recorrencia">
-                <h3 id="investimento-sec-recorrencia" className="plano-modal-section-title">
-                  Recorrência
-                </h3>
-                <div className="plano-modal-section-grid plano-modal-duo">
-                  <label className="plano-field">
-                    <span className="plano-field-label">Repete?</span>
-                    <select
-                      className="filter-select plano-input-pro"
-                      value={form.repete ? "sim" : "nao"}
-                      onChange={(e) => setForm((p) => ({ ...p, repete: e.target.value === "sim" }))}
-                    >
-                      <option value="nao">Não</option>
-                      <option value="sim">Sim</option>
-                    </select>
-                  </label>
-
-                  {form.repete ? (
-                    <label className="plano-field">
-                      <span className="plano-field-label">Frequência</span>
-                      <select
-                        className="filter-select plano-input-pro"
-                        value={form.frequencia}
-                        onChange={(e) => setForm((p) => ({ ...p, frequencia: e.target.value }))}
-                      >
-                        <option value="mensal">Mensal</option>
-                        <option value="semanal">Semanal</option>
-                      </select>
-                    </label>
+      {itens.length === 0 ? (
+        <div className="inv-empty">
+          <strong>Nenhum investimento encontrado</strong>
+          <p>
+            {investimentos.length === 0
+              ? "Comece registando o primeiro investimento de marketing."
+              : "Ajuste os filtros ou experimente outro termo de busca."}
+          </p>
+        </div>
+      ) : (
+        <section className="inv-list" aria-label="Lista de investimentos">
+          {itens.map((item) => (
+            <article key={item.id} className="inv-card">
+              <div className="inv-card__main">
+                <div className="inv-card__top">
+                  <span className="inv-card__id">{item.id}</span>
+                  {item.canal ? (
+                    <span className="inv-badge inv-badge--canal">{item.canal}</span>
+                  ) : null}
+                  <span
+                    className={`inv-badge ${item.repete ? "inv-badge--recorrente" : "inv-badge--pontual"}`}
+                  >
+                    {item.repete ? "Recorrente" : "Pontual"}
+                  </span>
+                  {item.repete ? (
+                    <span className="inv-badge inv-badge--freq">
+                      {item.frequencia === "semanal" ? "Semanal" : "Mensal"}
+                    </span>
                   ) : null}
                 </div>
+                <h2 className="inv-card__title">{item.nome}</h2>
+                <div className="inv-card__meta">
+                  <span>Data · {dateFormat(item.data)}</span>
+                  {item.repete ? (
+                    <span>
+                      Período · {dateFormat(item.dataInicio)} – {dateFormat(item.dataFim)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
 
-                {form.repete ? (
-                  <div className="plano-modal-section-grid plano-modal-duo investimento-recorrencia-box">
-                    <label className="plano-field">
-                      <span className="plano-field-label">Data início</span>
-                      <input
-                        type="date"
-                        className="filter-input plano-input-pro"
-                        value={form.dataInicio}
-                        onChange={(e) => setForm((p) => ({ ...p, dataInicio: e.target.value }))}
-                        required
-                      />
-                    </label>
-                    <label className="plano-field">
-                      <span className="plano-field-label">Data fim</span>
-                      <input
-                        type="date"
-                        className="filter-input plano-input-pro"
-                        value={form.dataFim}
-                        onChange={(e) => setForm((p) => ({ ...p, dataFim: e.target.value }))}
-                        required
-                      />
-                    </label>
-                  </div>
-                ) : null}
-              </section>
+              <div className="inv-card__valor">
+                <strong>{moneyFormat(item.valor)}</strong>
+                <span>valor</span>
+              </div>
 
-              {erro ? (
-                <p className="plano-form-error" role="alert">
-                  {erro}
-                </p>
-              ) : null}
-
-              <div className="plano-modal-actions plano-modal-footer-pro">
+              <div className="inv-card__actions">
                 <button
                   type="button"
-                  className="btn-secondary"
-                  onClick={() => setModalAberto(false)}
-                  disabled={saving}
+                  className="inv-card__btn"
+                  title="Editar investimento"
+                  aria-label="Editar investimento"
+                  onClick={() => openEdit(item)}
                 >
-                  Cancelar
+                  <Pencil size={16} strokeWidth={2} aria-hidden="true" />
                 </button>
-                <button type="submit" className="btn-primary plano-modal-submit" disabled={saving}>
-                  {saving ? "A guardar..." : editingId ? "Guardar alterações" : "Guardar investimento"}
+                <button
+                  type="button"
+                  className="inv-card__btn inv-card__btn--danger"
+                  title="Excluir investimento"
+                  aria-label="Excluir investimento"
+                  onClick={() => handleDelete(item)}
+                >
+                  <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
                 </button>
               </div>
-            </form>
-          </section>
-        </div>
+            </article>
+          ))}
+        </section>
+      )}
+
+      {itens.length > 0 ? (
+        <p className="inv-foot">
+          Mostrando {itens.length} de {investimentos.length} investimento
+          {investimentos.length === 1 ? "" : "s"}
+        </p>
       ) : null}
-    </>
+
+      {modalAberto
+        ? createPortal(
+            <div
+              className="plano-modal-backdrop"
+              role="presentation"
+              onClick={() => !saving && setModalAberto(false)}
+            >
+              <section
+                className="plano-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="investimento-modal-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <header className="plano-modal__head">
+                  <div className="plano-modal__head-main">
+                    <span className="plano-modal__icon plano-modal__icon--cyan" aria-hidden="true">
+                      <Wallet size={20} strokeWidth={2} />
+                    </span>
+                    <div>
+                      <span className="plano-modal__eyebrow">Marketing · Financeiro</span>
+                      <h2 id="investimento-modal-title">
+                        {editingId ? "Editar investimento" : "Novo investimento"}
+                      </h2>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="plano-modal__close"
+                    disabled={saving}
+                    onClick={() => setModalAberto(false)}
+                    aria-label="Fechar modal"
+                  >
+                    <X size={18} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </header>
+
+                <form className="plano-modal__form" onSubmit={handleSubmit}>
+                  <div className="plano-modal__scroll">
+                    <section className="plano-modal__panel" aria-labelledby="investimento-sec-dados">
+                      <header className="plano-modal__panel-head plano-modal__panel-head--cyan">
+                        <Wallet size={16} strokeWidth={2} aria-hidden="true" />
+                        <h3 id="investimento-sec-dados">Dados do investimento</h3>
+                      </header>
+                      <div className="plano-modal__grid">
+                        <label className="plano-modal__field plano-modal__field--full">
+                          <span className="plano-modal__label">Nome do investimento</span>
+                          <input
+                            type="text"
+                            className="plano-modal__input"
+                            value={form.nome}
+                            onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
+                            required
+                          />
+                        </label>
+                        <label className="plano-modal__field">
+                          <span className="plano-modal__label">Canal</span>
+                          <input
+                            type="text"
+                            className="plano-modal__input"
+                            list="investimento-canais-sugestoes"
+                            placeholder="Google Ads, Meta Ads…"
+                            value={form.canal}
+                            onChange={(e) => setForm((p) => ({ ...p, canal: e.target.value }))}
+                          />
+                          {canaisCadastrados.length ? (
+                            <datalist id="investimento-canais-sugestoes">
+                              {canaisCadastrados.map((canal) => (
+                                <option key={canal} value={canal} />
+                              ))}
+                            </datalist>
+                          ) : null}
+                        </label>
+                        <label className="plano-modal__field">
+                          <span className="plano-modal__label">Valor (R$)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="plano-modal__input"
+                            value={form.valor}
+                            onChange={(e) => setForm((p) => ({ ...p, valor: e.target.value }))}
+                            required
+                          />
+                        </label>
+                        <label className="plano-modal__field">
+                          <span className="plano-modal__label">Data</span>
+                          <input
+                            type="date"
+                            className="plano-modal__input"
+                            value={form.data}
+                            onChange={(e) => setForm((p) => ({ ...p, data: e.target.value }))}
+                            required
+                          />
+                        </label>
+                      </div>
+                    </section>
+
+                    <section className="plano-modal__panel" aria-labelledby="investimento-sec-recorrencia">
+                      <header className="plano-modal__panel-head plano-modal__panel-head--cyan">
+                        <Repeat size={16} strokeWidth={2} aria-hidden="true" />
+                        <h3 id="investimento-sec-recorrencia">Recorrência</h3>
+                      </header>
+                      <div className="plano-modal__grid plano-modal__grid--2">
+                        <label className="plano-modal__field">
+                          <span className="plano-modal__label">Repete?</span>
+                          <select
+                            className="plano-modal__input plano-modal__select"
+                            value={form.repete ? "sim" : "nao"}
+                            onChange={(e) =>
+                              setForm((p) => ({ ...p, repete: e.target.value === "sim" }))
+                            }
+                          >
+                            <option value="nao">Não — pontual</option>
+                            <option value="sim">Sim — recorrente</option>
+                          </select>
+                        </label>
+                        {form.repete ? (
+                          <label className="plano-modal__field">
+                            <span className="plano-modal__label">Frequência</span>
+                            <select
+                              className="plano-modal__input plano-modal__select"
+                              value={form.frequencia}
+                              onChange={(e) =>
+                                setForm((p) => ({ ...p, frequencia: e.target.value }))
+                              }
+                            >
+                              <option value="mensal">Mensal</option>
+                              <option value="semanal">Semanal</option>
+                            </select>
+                          </label>
+                        ) : null}
+                      </div>
+
+                      {form.repete ? (
+                        <div className="inv-modal__recurrence plano-modal__grid plano-modal__grid--2">
+                          <label className="plano-modal__field">
+                            <span className="plano-modal__label">Data início</span>
+                            <input
+                              type="date"
+                              className="plano-modal__input"
+                              value={form.dataInicio}
+                              onChange={(e) =>
+                                setForm((p) => ({ ...p, dataInicio: e.target.value }))
+                              }
+                              required
+                            />
+                          </label>
+                          <label className="plano-modal__field">
+                            <span className="plano-modal__label">Data fim</span>
+                            <input
+                              type="date"
+                              className="plano-modal__input"
+                              value={form.dataFim}
+                              onChange={(e) =>
+                                setForm((p) => ({ ...p, dataFim: e.target.value }))
+                              }
+                              required
+                            />
+                          </label>
+                        </div>
+                      ) : null}
+                    </section>
+
+                    {erro ? (
+                      <p className="plano-modal__error" role="alert">
+                        {erro}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <footer className="plano-modal__foot">
+                    <button
+                      type="button"
+                      className="plano-modal__btn plano-modal__btn--ghost"
+                      disabled={saving}
+                      onClick={() => setModalAberto(false)}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="plano-modal__btn plano-modal__btn--cyan"
+                      disabled={saving}
+                    >
+                      {saving
+                        ? "A guardar…"
+                        : editingId
+                          ? "Guardar alterações"
+                          : "Guardar investimento"}
+                    </button>
+                  </footer>
+                </form>
+              </section>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
   );
 }

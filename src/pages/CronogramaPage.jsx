@@ -1,32 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import PageHeader from "../components/PageHeader";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useClientData } from "../context/ClientDataContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 const STATUS_CRONOGRAMA = ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído"];
 
-const meses = [
-  { key: 1, label: "jan" },
-  { key: 2, label: "fev" },
-  { key: 3, label: "mar" },
-  { key: 4, label: "abr" },
-  { key: 5, label: "mai" },
-  { key: 6, label: "jun" },
-  { key: 7, label: "jul" },
-  { key: 8, label: "ago" },
-  { key: 9, label: "set" },
-  { key: 10, label: "out" },
-  { key: 11, label: "nov" },
-  { key: 12, label: "dez" },
-];
+const STATUS_META = {
+  Atrasado: { tone: "danger", label: "Atrasado" },
+  "Em Andamento": { tone: "active", label: "Em andamento" },
+  Concluído: { tone: "done", label: "Concluído" },
+  "Não Iniciado": { tone: "idle", label: "Não iniciado" },
+};
 
-function statusClass(status) {
-  if (status === "Atrasado") return "gantt-pill atraso";
-  if (status === "Em Andamento") return "gantt-pill andamento";
-  if (status === "Concluído") return "gantt-pill concluido";
-  return "gantt-pill pendente";
-}
+const MESES = [
+  { key: 1, label: "Jan" },
+  { key: 2, label: "Fev" },
+  { key: 3, label: "Mar" },
+  { key: 4, label: "Abr" },
+  { key: 5, label: "Mai" },
+  { key: 6, label: "Jun" },
+  { key: 7, label: "Jul" },
+  { key: 8, label: "Ago" },
+  { key: 9, label: "Set" },
+  { key: 10, label: "Out" },
+  { key: 11, label: "Nov" },
+  { key: 12, label: "Dez" },
+];
 
 function mesFromPrazo(prazo) {
   if (!prazo || typeof prazo !== "string") return null;
@@ -51,6 +51,15 @@ function diaMes(prazo) {
   return `${parts[0]}/${parts[1]}`;
 }
 
+function markerTone(status) {
+  return STATUS_META[status]?.tone || "idle";
+}
+
+function StatusBadge({ status }) {
+  const meta = STATUS_META[status] || { tone: "idle", label: status };
+  return <span className={`cron-badge cron-badge--${meta.tone}`}>{meta.label}</span>;
+}
+
 export default function CronogramaPage() {
   const { planoAcaoItems } = useClientData();
   const anoAjustadoPeloUsuario = useRef(false);
@@ -58,6 +67,9 @@ export default function CronogramaPage() {
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("Todos");
   const [areaFiltro, setAreaFiltro] = useState("Todas");
+
+  const mesAtual = new Date().getMonth() + 1;
+  const anoAtual = new Date().getFullYear();
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +83,7 @@ export default function CronogramaPage() {
           setAnoSelecionado(data.year);
         }
       } catch {
-        /* mantém o ano já exibido (relógio do navegador) */
+        /* mantém o ano do navegador */
       }
     })();
     return () => {
@@ -116,135 +128,200 @@ export default function CronogramaPage() {
     });
   }, [planoAcaoItems, busca, statusFiltro, areaFiltro, anoSelecionado]);
 
+  const resumo = useMemo(() => {
+    const total = itensFiltrados.length;
+    const atrasadas = itensFiltrados.filter((i) => i.status === "Atrasado").length;
+    const concluidas = itensFiltrados.filter((i) => i.status === "Concluído").length;
+    const comPrazo = itensFiltrados.filter((i) => anoFromPrazo(i.prazo) === anoSelecionado).length;
+    return { total, atrasadas, concluidas, comPrazo };
+  }, [itensFiltrados, anoSelecionado]);
+
   const anoCurto = String(anoSelecionado).slice(-2);
+  const isAnoCorrente = anoSelecionado === anoAtual;
 
   return (
-    <>
-      <PageHeader
-        title="Cronograma (Timeline/Gantt)"
-        subtitle="Visualização temporal das ações estratégicas"
-      />
-
-      <section className="card">
-        <div className="timeline-range" title="Faixa de meses do ano exibido (padrão = ano do servidor)">
-          <span className="timeline-ano-label">Ano {anoSelecionado}</span>
-          <span className="timeline-ano-meses">
+    <div className="cron">
+      <header className="cron-hero">
+        <div className="cron-hero__copy">
+          <span className="cron-hero__eyebrow">Estratégia · Timeline</span>
+          <h1>Cronograma</h1>
+          <p>Visualização temporal das ações do plano por mês</p>
+          <span className="cron-hero__range">
             jan {anoCurto} – dez {anoCurto}
           </span>
         </div>
-        <div className="gantt-title-row">
-          <h2 className="gantt-title">Cronograma de Ações Estratégicas</h2>
-          <div className="header-actions">
-            <button
-              className="btn-secondary"
-              onClick={() => mudarAno(-1)}
-              aria-label="Ano anterior"
-              title="Ano anterior"
-            >
-              ←
+
+        <div className="cron-hero__side">
+          <div className="cron-hero__stats">
+            <div className="cron-stat">
+              <span>No ano</span>
+              <strong>{resumo.total}</strong>
+            </div>
+            <div className="cron-stat">
+              <span>Com prazo</span>
+              <strong>{resumo.comPrazo}</strong>
+            </div>
+            <div className="cron-stat cron-stat--danger">
+              <span>Atrasadas</span>
+              <strong>{resumo.atrasadas}</strong>
+            </div>
+            <div className="cron-stat cron-stat--done">
+              <span>Concluídas</span>
+              <strong>{resumo.concluidas}</strong>
+            </div>
+          </div>
+
+          <div className="cron-year-nav" aria-label="Navegar entre anos">
+            <button type="button" onClick={() => mudarAno(-1)} aria-label="Ano anterior">
+              <ChevronLeft size={18} strokeWidth={2} />
             </button>
-            <button
-              className="btn-secondary"
-              onClick={() => mudarAno(1)}
-              aria-label="Próximo ano"
-              title="Próximo ano"
-            >
-              →
+            <strong>{anoSelecionado}</strong>
+            <button type="button" onClick={() => mudarAno(1)} aria-label="Próximo ano">
+              <ChevronRight size={18} strokeWidth={2} />
             </button>
           </div>
         </div>
+      </header>
 
-        <div className="table-filters cronograma-filters">
+      <section className="cron-toolbar" aria-label="Filtros">
+        <label className="cron-toolbar__search">
+          <Search size={16} strokeWidth={2} aria-hidden="true" />
           <input
-            type="text"
-            className="filter-input"
-            placeholder="Buscar por ID, ação ou responsável"
+            type="search"
+            placeholder="Buscar por ID, ação ou responsável…"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select
-            className="filter-select"
-            value={statusFiltro}
-            onChange={(e) => setStatusFiltro(e.target.value)}
-          >
-            {statusOptions.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-          <select
-            className="filter-select"
-            value={areaFiltro}
-            onChange={(e) => setAreaFiltro(e.target.value)}
-          >
-            {areaOptions.map((area) => (
-              <option key={area} value={area}>
-                {area}
-              </option>
-            ))}
-          </select>
-        </div>
+        </label>
 
-        <div className="table-scroll gantt-scroll">
-          <table className="timeline-table gantt-table">
-            <thead>
-              <tr>
-                <th>Ação</th>
-                {meses.map((mes) => (
-                  <th key={mes.key}>{mes.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {itensFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={13} className="gantt-empty">
-                    Sem ações para {anoSelecionado} com os filtros atuais.
-                  </td>
-                </tr>
-              ) : itensFiltrados.map((item) => {
-                const mesAlvo = mesFromPrazo(item.prazo);
-                const semPrazoValido = mesAlvo === null;
-                return (
-                  <tr key={item.id}>
-                    <td>
-                      <div className="gantt-action">
-                        <strong>{item.id}</strong>
-                        <p>{item.acao}</p>
-                        <small>{item.responsavel}</small>
-                      </div>
-                    </td>
-                    {meses.map((mes) => (
-                      <td key={`${item.id}-${mes.key}`} className="gantt-month-cell">
-                        {semPrazoValido && mes.key === 12 ? (
-                          <div className={statusClass(item.status)}>
-                            <span>—</span>
-                            <em className="gantt-sem-prazo">Sem prazo</em>
-                          </div>
-                        ) : mes.key === mesAlvo ? (
-                          <div className={statusClass(item.status)}>
-                            <span>{diaMes(item.prazo)}</span>
-                            <em>{item.progresso}</em>
-                          </div>
-                        ) : null}
-                      </td>
+        <select value={statusFiltro} onChange={(e) => setStatusFiltro(e.target.value)}>
+          {statusOptions.map((status) => (
+            <option key={status} value={status}>
+              {status === "Todos" ? "Todos os status" : status}
+            </option>
+          ))}
+        </select>
+
+        <select value={areaFiltro} onChange={(e) => setAreaFiltro(e.target.value)}>
+          {areaOptions.map((area) => (
+            <option key={area} value={area}>
+              {area === "Todas" ? "Todas as áreas" : area}
+            </option>
+          ))}
+        </select>
+      </section>
+
+      <section className="cron-board" aria-label={`Cronograma ${anoSelecionado}`}>
+        {itensFiltrados.length === 0 ? (
+          <div className="cron-board__empty">
+            <strong>Sem ações para {anoSelecionado}</strong>
+            <p>Ajuste os filtros ou selecione outro ano para ver o cronograma.</p>
+          </div>
+        ) : (
+          <>
+            <div className="cron-board__scroll">
+              <table className="cron-gantt">
+                <thead>
+                  <tr>
+                    <th scope="col">Ação</th>
+                    {MESES.map((mes) => (
+                      <th
+                        key={mes.key}
+                        scope="col"
+                        className={
+                          isAnoCorrente && mes.key === mesAtual
+                            ? "cron-gantt__month--current"
+                            : undefined
+                        }
+                      >
+                        {mes.label}
+                      </th>
                     ))}
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {itensFiltrados.map((item) => {
+                    const mesAlvo = mesFromPrazo(item.prazo);
+                    const semPrazoValido = mesAlvo === null;
+                    const tone = markerTone(item.status);
 
-        <div className="gantt-legend">
-          <span>Status:</span>
-          <em className="legend-pill pendente">não iniciado</em>
-          <em className="legend-pill andamento">em andamento</em>
-          <em className="legend-pill concluido">concluído</em>
-          <em className="legend-pill atraso">atrasado</em>
-        </div>
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          <span className="cron-gantt__action-id">{item.id}</span>
+                          <p className="cron-gantt__action-title">{item.acao}</p>
+                          <div className="cron-gantt__action-meta">
+                            <small>{item.responsavel}</small>
+                            <StatusBadge status={item.status} />
+                          </div>
+                        </td>
+                        {MESES.map((mes) => {
+                          const isCurrentMonth =
+                            isAnoCorrente && mes.key === mesAtual;
+                          const cellClass = [
+                            "cron-gantt__cell",
+                            isCurrentMonth ? "cron-gantt__month--current" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ");
+
+                          let content = null;
+                          if (semPrazoValido && mes.key === 12) {
+                            content = (
+                              <div className="cron-marker cron-marker--empty">
+                                <em>Sem prazo</em>
+                              </div>
+                            );
+                          } else if (mes.key === mesAlvo) {
+                            content = (
+                              <div className={`cron-marker cron-marker--${tone}`}>
+                                <span>{diaMes(item.prazo)}</span>
+                                <em>{item.progresso}</em>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <td key={`${item.id}-${mes.key}`} className={cellClass}>
+                              {content}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <footer className="cron-legend">
+              <span>Legenda:</span>
+              <span className="cron-legend__item">
+                <i className="cron-legend__dot cron-legend__dot--idle" aria-hidden="true" />
+                Não iniciado
+              </span>
+              <span className="cron-legend__item">
+                <i className="cron-legend__dot cron-legend__dot--active" aria-hidden="true" />
+                Em andamento
+              </span>
+              <span className="cron-legend__item">
+                <i className="cron-legend__dot cron-legend__dot--done" aria-hidden="true" />
+                Concluído
+              </span>
+              <span className="cron-legend__item">
+                <i className="cron-legend__dot cron-legend__dot--danger" aria-hidden="true" />
+                Atrasado
+              </span>
+            </footer>
+          </>
+        )}
       </section>
-    </>
+
+      {itensFiltrados.length > 0 ? (
+        <p className="cron-foot">
+          {itensFiltrados.length} aç{itensFiltrados.length === 1 ? "ão" : "ões"} em {anoSelecionado}
+        </p>
+      ) : null}
+    </div>
   );
 }

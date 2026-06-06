@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Bell,
-  Link2,
   RefreshCw,
   Unplug,
 } from "lucide-react";
+import { GoogleIcon, MetaIcon } from "../components/icons/BrandIcons";
 import { useClientData } from "../context/ClientDataContext";
 
 function statusLabel(status) {
@@ -355,7 +355,7 @@ export default function IntegracoesMarketingPage() {
         <div className="cfg-integ__head">
           <div className="cfg-integ__brand">
             <span className="cfg-integ__logo cfg-integ__logo--meta" aria-hidden="true">
-              Meta
+              <MetaIcon size={22} />
             </span>
             <div>
               <h2>Meta Ads (Facebook / Instagram)</h2>
@@ -409,7 +409,9 @@ export default function IntegracoesMarketingPage() {
                 disabled={connectingMeta || isLoading || !metaConfigured}
                 onClick={handleConnectMeta}
               >
-                <Link2 size={16} strokeWidth={2} aria-hidden="true" />
+                <span className="cfg-btn__brand" aria-hidden="true">
+                  <MetaIcon size={14} />
+                </span>
                 {connectingMeta ? "Redirecionando…" : "Conectar Meta Ads"}
               </button>
             ) : (
@@ -559,7 +561,7 @@ export default function IntegracoesMarketingPage() {
         <div className="cfg-integ__head">
           <div className="cfg-integ__brand">
             <span className="cfg-integ__logo cfg-integ__logo--google" aria-hidden="true">
-              G
+              <GoogleIcon size={22} />
             </span>
             <div>
               <h2>Google Ads</h2>
@@ -601,7 +603,9 @@ export default function IntegracoesMarketingPage() {
                 disabled={connectingGoogle || isLoading || !googleConfigured}
                 onClick={handleConnectGoogle}
               >
-                <Link2 size={16} strokeWidth={2} aria-hidden="true" />
+                <span className="cfg-btn__brand" aria-hidden="true">
+                  <GoogleIcon size={14} />
+                </span>
                 {connectingGoogle ? "Redirecionando…" : "Conectar Google Ads"}
               </button>
             ) : (

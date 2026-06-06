@@ -522,6 +522,27 @@
   border-color: rgba(239, 68, 68, 0.2);
 }
 
+.cfg-btn--meta,
+.cfg-btn--google {
+  gap: 10px;
+}
+
+.cfg-btn--meta .cfg-btn__brand,
+.cfg-btn--google .cfg-btn__brand {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.cfg-btn--meta .cfg-btn__brand svg,
+.cfg-btn--google .cfg-btn__brand svg {
+  display: block;
+}
+
 .cfg-btn--meta {
   border: 0;
   color: #fff;
@@ -568,21 +589,21 @@
   display: grid;
   place-items: center;
   border-radius: 11px;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.cfg-integ__logo svg {
+  display: block;
 }
 
 .cfg-integ__logo--meta {
-  color: #1d4ed8;
-  background: rgba(24, 119, 242, 0.12);
-  border: 1px solid rgba(24, 119, 242, 0.15);
+  /* fundo branco — logótipo Meta em #0081FB */
 }
 
 .cfg-integ__logo--google {
-  color: #b45309;
-  background: rgba(251, 188, 4, 0.15);
-  border: 1px solid rgba(234, 67, 53, 0.12);
+  /* fundo branco — logótipo Google multicolor */
 }
 
 .cfg-integ__logo--notify {
